@@ -4,6 +4,7 @@ import folium
 from streamlit_folium import st_folium
 from utils.data_processor import load_data, process_site_data
 from utils.visualizations import create_world_map
+from utils.export_utils import export_data_to_csv, get_download_link
 import time
 from datetime import datetime, timedelta
 
@@ -101,6 +102,15 @@ def main():
             
         sites_data = process_site_data(df)
         
+        # Export controls
+        st.sidebar.header("Export Options")
+        if st.sidebar.button("Export All Data"):
+            href, filename = export_data_to_csv(df, "ro_process_data")
+            st.sidebar.markdown(
+                get_download_link(href, filename, "📥 Download Data (CSV)"),
+                unsafe_allow_html=True
+            )
+        
         # Create two columns for layout
         col1, col2 = st.columns([2, 1])
         
@@ -125,6 +135,14 @@ def main():
             
             # Last updated timestamp
             st.text(f"Last Updated: {df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Export site overview
+            if st.button("Export Site Overview"):
+                href, filename = export_data_to_csv(sites_data, "site_overview")
+                st.markdown(
+                    get_download_link(href, filename, "📥 Download Site Overview (CSV)"),
+                    unsafe_allow_html=True
+                )
             
             # Site selector
             selected_site = st.selectbox(
