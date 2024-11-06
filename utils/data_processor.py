@@ -14,7 +14,20 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
 
         # Load historical data from sensor_data_output
         try:
-            historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv', parse_dates=['timestamp'])
+            # Read the CSV file
+            historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv')
+            
+            # Merge date and time columns if they exist separately
+            if 'date' in historical_df.columns and 'time' in historical_df.columns:
+                historical_df['timestamp'] = pd.to_datetime(
+                    historical_df['date'] + ' ' + historical_df['time']
+                )
+            # If timestamp column exists, parse it
+            elif 'timestamp' in historical_df.columns:
+                historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
+            else:
+                raise ValueError("No valid timestamp columns found in historical data")
+                
         except FileNotFoundError:
             historical_df = pd.DataFrame()
 
