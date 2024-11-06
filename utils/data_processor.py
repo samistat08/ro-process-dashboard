@@ -17,12 +17,13 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
             # Read the CSV file
             historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv')
             
-            # Merge date and time columns if they exist separately
+            # Ensure date and time columns exist and handle them properly
             if 'date' in historical_df.columns and 'time' in historical_df.columns:
-                historical_df['timestamp'] = pd.to_datetime(
-                    historical_df['date'] + ' ' + historical_df['time']
-                )
-            # If timestamp column exists, parse it
+                # Convert date and time to proper format first
+                historical_df['date'] = pd.to_datetime(historical_df['date']).dt.strftime('%Y-%m-%d')
+                historical_df['time'] = pd.to_datetime(historical_df['time'], format='%H:%M:%S').dt.strftime('%H:%M:%S')
+                # Combine date and time
+                historical_df['timestamp'] = pd.to_datetime(historical_df['date'] + ' ' + historical_df['time'])
             elif 'timestamp' in historical_df.columns:
                 historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
             else:
