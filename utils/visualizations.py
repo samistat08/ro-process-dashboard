@@ -2,6 +2,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import folium
 from folium import plugins
+import pandas as pd
 
 def create_world_map(sites_data):
     """Create interactive world map with site markers"""
@@ -25,24 +26,91 @@ def create_world_map(sites_data):
     return m
 
 def create_kpi_trends(df, site_name):
-    """Create KPI trend visualizations"""
+    """Create KPI trend visualizations with daily aggregation"""
     site_df = df[df['site_name'] == site_name].copy()
     
-    # Recovery Rate Trend
-    fig_recovery = px.line(
-        site_df,
-        x='timestamp',
-        y='recovery_rate',
-        title='Recovery Rate Trend'
+    # Convert timestamp to date for daily aggregation
+    site_df['date'] = site_df['timestamp'].dt.date
+    
+    # Daily aggregation
+    daily_metrics = site_df.groupby('date').agg({
+        'recovery_rate': 'mean',
+        'pressure': 'mean',
+        'flow_rate': 'mean',
+        'temperature': 'mean'
+    }).reset_index()
+    
+    # Convert date back to datetime for better plotting
+    daily_metrics['date'] = pd.to_datetime(daily_metrics['date'])
+    
+    # Recovery Rate Trend with smoothed line
+    fig_recovery = go.Figure()
+    
+    # Add scatter points for actual values
+    fig_recovery.add_trace(go.Scatter(
+        x=daily_metrics['date'],
+        y=daily_metrics['recovery_rate'],
+        mode='markers',
+        name='Daily Values',
+        marker=dict(size=8)
+    ))
+    
+    # Add smoothed line
+    fig_recovery.add_trace(go.Scatter(
+        x=daily_metrics['date'],
+        y=daily_metrics['recovery_rate'].rolling(window=3, min_periods=1).mean(),
+        mode='lines',
+        name='Trend',
+        line=dict(width=3, smoothing=1.3)
+    ))
+    
+    fig_recovery.update_layout(
+        title='Recovery Rate Trend (Daily Average)',
+        xaxis_title='Date',
+        yaxis_title='Recovery Rate (%)',
+        hovermode='x unified',
+        xaxis=dict(
+            tickformat='%Y-%m-%d',
+            tickmode='auto',
+            nticks=10
+        )
     )
     
-    # Pressure vs Flow Rate
-    fig_pressure_flow = px.scatter(
-        site_df,
-        x='pressure',
-        y='flow_rate',
-        title='Pressure vs Flow Rate',
-        trendline="ols"
+    # Pressure vs Flow Rate with daily averages
+    fig_pressure_flow = go.Figure()
+    
+    fig_pressure_flow.add_trace(go.Scatter(
+        x=daily_metrics['pressure'],
+        y=daily_metrics['flow_rate'],
+        mode='markers',
+        name='Daily Average',
+        marker=dict(
+            size=10,
+            color=daily_metrics['date'],
+            colorscale='Viridis',
+            showscale=True,
+            colorbar=dict(title='Date')
+        )
+    ))
+    
+    # Add trendline
+    z = np.polyfit(daily_metrics['pressure'], daily_metrics['flow_rate'], 1)
+    p = np.poly1d(z)
+    x_range = np.linspace(daily_metrics['pressure'].min(), daily_metrics['pressure'].max(), 100)
+    
+    fig_pressure_flow.add_trace(go.Scatter(
+        x=x_range,
+        y=p(x_range),
+        mode='lines',
+        name='Trend Line',
+        line=dict(color='red', dash='dash')
+    ))
+    
+    fig_pressure_flow.update_layout(
+        title='Pressure vs Flow Rate (Daily Average)',
+        xaxis_title='Pressure (bar)',
+        yaxis_title='Flow Rate (m³/h)',
+        hovermode='closest'
     )
     
     return fig_recovery, fig_pressure_flow
