@@ -1,0 +1,4 @@
+timestamp,site_id,site_name,latitude,longitude,pressure,flow_rate,conductivity,temperature,recovery_rate
+2023-01-01 00:00:00,1,Singapore Plant,1.3521,103.8198,65.2,120.5,450,25.3,75.2
+2023-01-01 00:00:00,2,Dubai Facility,25.2048,55.2708,67.8,115.2,480,28.7,73.8
+2023-01-01 00:00:00,3,California Unit,34.0522,-118.2437,63.5,118.7,445,22.1,76.5
