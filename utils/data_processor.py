@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-def load_data(use_real_time=True):
+def load_data(use_real_time=True, start_date=None, end_date=None):
     """Load and validate RO process data"""
     try:
         if use_real_time:
@@ -13,6 +13,15 @@ def load_data(use_real_time=True):
                 df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
         else:
             df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
+        
+        # Apply time filtering if dates are provided
+        if start_date and end_date:
+            df = df[(df['timestamp'] >= start_date) & (df['timestamp'] <= end_date)]
+        elif start_date:
+            df = df[df['timestamp'] >= start_date]
+        elif end_date:
+            df = df[df['timestamp'] <= end_date]
+            
         return df
     except Exception as e:
         raise Exception(f"Error loading data: {str(e)}")
@@ -25,7 +34,8 @@ def process_site_data(df):
         'flow_rate': 'mean',
         'conductivity': 'mean',
         'temperature': 'mean',
-        'recovery_rate': 'mean'
+        'recovery_rate': 'mean',
+        'timestamp': 'max'  # Keep track of latest timestamp
     }).reset_index()
     
     return site_data
@@ -39,7 +49,8 @@ def calculate_kpis(df, site_name):
         'avg_pressure': site_df['pressure'].mean(),
         'avg_flow': site_df['flow_rate'].mean(),
         'efficiency_score': calculate_efficiency_score(site_df),
-        'last_updated': site_df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')
+        'last_updated': site_df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S'),
+        'date_range': f"{site_df['timestamp'].min().strftime('%Y-%m-%d')} to {site_df['timestamp'].max().strftime('%Y-%m-%d')}"
     }
     
     return kpis

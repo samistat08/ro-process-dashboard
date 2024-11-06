@@ -5,6 +5,7 @@ from streamlit_folium import st_folium
 from utils.data_processor import load_data, process_site_data
 from utils.visualizations import create_world_map
 import time
+from datetime import datetime, timedelta
 
 # Page configuration
 st.set_page_config(
@@ -16,12 +17,41 @@ st.set_page_config(
 def main():
     st.title("🌊 RO Process Monitoring Dashboard")
     
+    # Sidebar controls
+    st.sidebar.header("Dashboard Controls")
+    
     # Add auto-refresh checkbox
     auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
     refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 
-                                       min_value=5, 
-                                       max_value=60, 
-                                       value=10)
+                                    min_value=5, 
+                                    max_value=60, 
+                                    value=10)
+    
+    # Add date range picker
+    st.sidebar.subheader("Time Filter")
+    use_time_filter = st.sidebar.checkbox("Enable Time Filter")
+    
+    start_date = None
+    end_date = None
+    
+    if use_time_filter:
+        col1, col2 = st.sidebar.columns(2)
+        with col1:
+            start_date = st.date_input("Start Date", 
+                                     value=datetime.now() - timedelta(days=7),
+                                     max_value=datetime.now())
+        with col2:
+            end_date = st.date_input("End Date", 
+                                   value=datetime.now(),
+                                   max_value=datetime.now())
+        
+        if start_date > end_date:
+            st.sidebar.error("Start date must be before end date")
+            return
+            
+        # Convert to datetime
+        start_date = datetime.combine(start_date, datetime.min.time())
+        end_date = datetime.combine(end_date, datetime.max.time())
     
     # Initialize last_refresh in session state
     if 'last_refresh' not in st.session_state:
@@ -33,11 +63,11 @@ def main():
     
     if should_refresh:
         st.session_state.last_refresh = current_time
-        st.experimental_rerun()
+        st.rerun()
     
     # Load and process data
     try:
-        df = load_data(use_real_time=True)
+        df = load_data(use_real_time=True, start_date=start_date, end_date=end_date)
         sites_data = process_site_data(df)
         
         # Create two columns for layout
@@ -57,6 +87,10 @@ def main():
             
             st.metric("Total Active Sites", total_sites)
             st.metric("Average Recovery Rate", f"{avg_recovery:.1f}%")
+            
+            # Display time range
+            if use_time_filter:
+                st.info(f"Showing data from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
             
             # Last updated timestamp
             st.text(f"Last Updated: {df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')}")
