@@ -2,6 +2,37 @@ import streamlit as st
 import pandas as pd
 from utils.data_processor import load_data, calculate_kpis
 from utils.visualizations import create_kpi_trends, create_performance_gauge
+from utils.predictive_maintenance import MaintenancePredictor
+
+def render_maintenance_alerts(site_df):
+    """Render maintenance alerts section"""
+    predictor = MaintenancePredictor()
+    maintenance_info = predictor.predict_maintenance_needs(site_df)
+    
+    # Display status with appropriate color
+    status_colors = {
+        'normal': 'green',
+        'attention': 'blue',
+        'warning': 'orange',
+        'critical': 'red'
+    }
+    
+    st.subheader("🔔 Maintenance Alerts")
+    status_color = status_colors.get(maintenance_info['status'], 'gray')
+    st.markdown(f"<h3 style='color: {status_color};'>Status: {maintenance_info['status'].upper()}</h3>", unsafe_allow_html=True)
+    
+    # Display next maintenance date
+    st.write("Next Recommended Maintenance:", maintenance_info['next_maintenance'].strftime("%Y-%m-%d"))
+    
+    # Display alerts if any
+    if maintenance_info['alerts']:
+        st.write("Active Alerts:")
+        for alert in maintenance_info['alerts']:
+            with st.expander(f"{alert['parameter']} - {alert['message']}"):
+                st.write(f"Severity: {alert['severity'].upper()}")
+                st.write(f"Recommendation: {alert['recommendation']}")
+    else:
+        st.success("No active alerts - System operating normally")
 
 def render_site_details():
     st.title("Site Details Analysis")
@@ -30,6 +61,9 @@ def render_site_details():
         st.metric("Average Pressure", f"{kpis['avg_pressure']:.1f} bar")
     with col3:
         st.metric("Average Flow", f"{kpis['avg_flow']:.1f} m³/h")
+    
+    # Maintenance Alerts Section
+    render_maintenance_alerts(site_df)
     
     # Performance Score Gauge
     st.subheader("Overall Performance Score")
