@@ -14,15 +14,22 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
         historical_df = pd.DataFrame()
         real_time_df = pd.DataFrame()
 
-        # Load historical data from sensor_data_output CSV
+        # Load historical data from the new CSV
         try:
-            historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv')
+            historical_df = pd.read_csv('RO_System_Sensors_Hourly_Report_May_to_October_2024 - RO_System_Sensors_Hourly_Report_May_to_October_2024 (2).csv')
             logger.info("Debug - CSV columns: %s", historical_df.columns.tolist())
+            
+            # Handle missing values before processing
+            historical_df = historical_df.fillna({
+                'pres-ID-001_feed': historical_df['pres-ID-001_feed'].median(),
+                'flow-ID-001_feed': historical_df['flow-ID-001_feed'].median(),
+                'flow-ID-001_product': historical_df['flow-ID-001_product'].median()
+            })
             
             # Convert the specific columns from the CSV to match our expected format
             historical_df = historical_df.rename(columns={
                 'pres-ID-001_feed': 'pressure',
-                'flow-ID_001_feed': 'flow_rate',  # Fixed underscore in column name
+                'flow-ID-001_feed': 'flow_rate',
                 'location': 'site_name'
             })
             
@@ -35,7 +42,7 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
             
             # Calculate recovery rate from available metrics
             historical_df['recovery_rate'] = (
-                historical_df['flow-ID-001_product'] / historical_df['flow-ID_001_feed']
+                historical_df['flow-ID-001_product'] / historical_df['flow-ID-001_feed']
             ) * 100
             
             # Add missing columns for compatibility with real-time data
@@ -43,23 +50,25 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
                 historical_df['site_id'] = historical_df.groupby('site_name').ngroup() + 1
             
             if 'latitude' not in historical_df.columns:
-                # Add default coordinates based on site name
+                # Update site coordinates mapping based on the new data
                 site_coords = {
-                    'Singapore': (1.3521, 103.8198),
-                    'Dubai': (25.2048, 55.2708),
-                    'California': (34.0522, -118.2437)
+                    'amsterdam': (52.3676, 4.9041),
+                    'singapore': (1.3521, 103.8198),
+                    'dubai': (25.2048, 55.2708),
+                    'california': (34.0522, -118.2437)
                 }
-                historical_df['latitude'] = historical_df['site_name'].map(lambda x: next((lat for site, (lat, _) in site_coords.items() if site in x), 0))
-                historical_df['longitude'] = historical_df['site_name'].map(lambda x: next((lon for site, (_, lon) in site_coords.items() if site in x), 0))
+                historical_df['latitude'] = historical_df['site_name'].map(lambda x: site_coords.get(x.lower(), (0, 0))[0])
+                historical_df['longitude'] = historical_df['site_name'].map(lambda x: site_coords.get(x.lower(), (0, 0))[1])
             
             if 'conductivity' not in historical_df.columns:
-                historical_df['conductivity'] = np.nan
+                historical_df['conductivity'] = historical_df['elect-ID-001_feed']
             
             if 'temperature' not in historical_df.columns:
                 historical_df['temperature'] = np.nan
 
         except FileNotFoundError:
             logger.warning("Historical data file not found")
+            raise
 
         # Load real-time data if enabled
         if use_real_time:
