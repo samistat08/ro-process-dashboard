@@ -50,7 +50,10 @@ def create_kpi_trends(df, site_name):
         
         # Remove any NaN values
         daily_metrics = daily_metrics.dropna()
-        logger.info(f"Generated {len(daily_metrics)} daily aggregated points")
+        
+        # Debug print
+        print(f"Number of data points: {len(daily_metrics)}")
+        print("Date range:", daily_metrics['timestamp'].min(), "to", daily_metrics['timestamp'].max())
         
         # Create Recovery Rate trend plot
         fig_recovery = go.Figure()
@@ -60,7 +63,7 @@ def create_kpi_trends(df, site_name):
             mode='lines+markers',
             name='Recovery Rate',
             line=dict(color='blue', width=2),
-            marker=dict(size=8, color='blue')
+            marker=dict(size=6)
         ))
         
         fig_recovery.update_layout(
@@ -69,13 +72,17 @@ def create_kpi_trends(df, site_name):
             yaxis_title='Recovery Rate (%)',
             xaxis=dict(
                 type='date',
-                tickformat='%Y-%m-%d',
-                dtick='D1',  # Show daily ticks
-                showgrid=True
+                tickformat='%Y-%m-%d %H:%M',
+                tickangle=45,
+                gridcolor='lightgrey',
+                showgrid=True,
+                tickmode='auto',
+                nticks=10
             ),
             yaxis=dict(showgrid=True),
             showlegend=True,
-            hovermode='x unified'
+            hovermode='x unified',
+            height=400
         )
         
         # Create Flow Rate trend plot
@@ -86,7 +93,7 @@ def create_kpi_trends(df, site_name):
             mode='lines+markers',
             name='Flow Rate',
             line=dict(color='green', width=2),
-            marker=dict(size=8, color='green')
+            marker=dict(size=6)
         ))
         
         fig_flow.update_layout(
@@ -95,13 +102,17 @@ def create_kpi_trends(df, site_name):
             yaxis_title='Flow Rate (m³/h)',
             xaxis=dict(
                 type='date',
-                tickformat='%Y-%m-%d',
-                dtick='D1',  # Show daily ticks
-                showgrid=True
+                tickformat='%Y-%m-%d %H:%M',
+                tickangle=45,
+                gridcolor='lightgrey',
+                showgrid=True,
+                tickmode='auto',
+                nticks=10
             ),
             yaxis=dict(showgrid=True),
             showlegend=True,
-            hovermode='x unified'
+            hovermode='x unified',
+            height=400
         )
         
         return fig_recovery, fig_flow

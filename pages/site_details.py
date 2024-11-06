@@ -15,7 +15,7 @@ def render_site_details():
     st.header(f"📍 {site_name}")
     
     # Load data
-    df = load_data()
+    df = load_data(use_real_time=True)  # Enable real-time data
     site_df = df[df['site_name'] == site_name].copy()
     
     # Calculate KPIs
@@ -37,17 +37,21 @@ def render_site_details():
         kpis['efficiency_score'],
         "Efficiency Score"
     )
-    st.plotly_chart(gauge_fig)
+    st.plotly_chart(gauge_fig, use_container_width=True)
     
     # Trend Analysis
     st.subheader("Trend Analysis")
     fig_recovery, fig_flow = create_kpi_trends(df, site_name)
     
+    # Create two columns for plots
     col1, col2 = st.columns(2)
     with col1:
-        st.plotly_chart(fig_recovery)
+        st.plotly_chart(fig_recovery, use_container_width=True)
     with col2:
-        st.plotly_chart(fig_flow)
+        st.plotly_chart(fig_flow, use_container_width=True)
+    
+    # Display last update time
+    st.text(f"Last Updated: {kpis['last_updated']}")
 
 if __name__ == "__main__":
     render_site_details()
