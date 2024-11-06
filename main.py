@@ -14,6 +14,18 @@ st.set_page_config(
     layout="wide"
 )
 
+def get_data_date_range():
+    """Get the full date range available in the data"""
+    try:
+        df = load_data(use_real_time=False)  # Load historical data only for range calculation
+        min_date = df['timestamp'].min().date()
+        max_date = datetime.now().date()
+        return min_date, max_date
+    except Exception:
+        # Fallback to last week if can't determine range
+        now = datetime.now().date()
+        return now - timedelta(days=7), now
+
 def main():
     st.title("🌊 RO Process Monitoring Dashboard")
     
@@ -36,18 +48,23 @@ def main():
     
     try:
         if use_time_filter:
+            # Get available date range
+            min_date, max_date = get_data_date_range()
+            
             col1, col2 = st.sidebar.columns(2)
             with col1:
                 start_date = st.date_input(
                     "Start Date",
-                    value=datetime.now() - timedelta(days=7),
-                    max_value=datetime.now()
+                    value=max_date - timedelta(days=7),
+                    min_value=min_date,
+                    max_value=max_date
                 )
             with col2:
                 end_date = st.date_input(
                     "End Date",
-                    value=datetime.now(),
-                    max_value=datetime.now()
+                    value=max_date,
+                    min_value=min_date,
+                    max_value=max_date
                 )
             
             if start_date > end_date:
@@ -57,6 +74,8 @@ def main():
             # Convert to datetime with time component
             start_datetime = datetime.combine(start_date, datetime.min.time())
             end_datetime = datetime.combine(end_date, datetime.max.time())
+            
+            st.sidebar.info(f"Data available from {min_date} to {max_date}")
     except Exception as e:
         st.sidebar.error(f"Error setting date range: {str(e)}")
         return

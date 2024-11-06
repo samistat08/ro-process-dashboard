@@ -5,21 +5,42 @@ from datetime import datetime, timedelta
 def load_data(use_real_time=True, start_date=None, end_date=None):
     """Load and validate RO process data"""
     try:
+        # Load real-time data first
         if use_real_time:
             try:
-                df = pd.read_csv('data/real_time_data.csv', parse_dates=['timestamp'])
+                real_time_df = pd.read_csv('data/real_time_data.csv', parse_dates=['timestamp'])
             except FileNotFoundError:
-                # Fall back to sample data if real-time data is not available
-                df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
+                real_time_df = pd.DataFrame()
+
+        # Load historical data from sensor_data_output
+        try:
+            historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv', parse_dates=['timestamp'])
+        except FileNotFoundError:
+            historical_df = pd.DataFrame()
+
+        # Combine real-time and historical data if both exist
+        if not historical_df.empty and not real_time_df.empty and use_real_time:
+            df = pd.concat([historical_df, real_time_df], ignore_index=True)
+        elif not historical_df.empty:
+            df = historical_df
+        elif not real_time_df.empty and use_real_time:
+            df = real_time_df
         else:
+            # Fallback to sample data if no other data is available
             df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
+
+        # Remove duplicates based on timestamp and site_id
+        df = df.drop_duplicates(subset=['timestamp', 'site_id'])
+        
+        # Sort by timestamp
+        df = df.sort_values('timestamp')
         
         # Apply time filtering if dates are provided
-        if start_date and end_date:
-            df = df[(df['timestamp'] >= start_date) & (df['timestamp'] <= end_date)]
-        elif start_date:
+        if start_date:
+            start_date = pd.to_datetime(start_date)
             df = df[df['timestamp'] >= start_date]
-        elif end_date:
+        if end_date:
+            end_date = pd.to_datetime(end_date)
             df = df[df['timestamp'] <= end_date]
             
         return df
