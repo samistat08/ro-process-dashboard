@@ -22,7 +22,7 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
             # Convert the specific columns from the CSV to match our expected format
             historical_df = historical_df.rename(columns={
                 'pres-ID-001_feed': 'pressure',
-                'flow-ID_001_feed': 'flow_rate',
+                'flow-ID_001_feed': 'flow_rate',  # Fixed underscore in column name
                 'location': 'site_name'
             })
             
