@@ -16,29 +16,27 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
 
         # Load historical data from the new CSV
         try:
-            historical_df = pd.read_csv('RO_System_Sensors_Hourly_Report_May_to_October_2024 - RO_System_Sensors_Hourly_Report_May_to_October_2024 (2).csv')
+            historical_df = pd.read_csv('data_to_use.csv')
             logger.info("Debug - CSV columns: %s", historical_df.columns.tolist())
             
             # Handle missing values before processing
             historical_df = historical_df.fillna({
                 'pres-ID-001_feed': historical_df['pres-ID-001_feed'].median(),
                 'flow-ID-001_feed': historical_df['flow-ID-001_feed'].median(),
-                'flow-ID-001_product': historical_df['flow-ID-001_product'].median()
+                'flow-ID-001_product': historical_df['flow-ID-001_product'].median(),
+                'elect-ID-001_feed': historical_df['elect-ID-001_feed'].median()
             })
+            
+            # Use the datetime column directly
+            historical_df['timestamp'] = pd.to_datetime(historical_df['datetime'])
             
             # Convert the specific columns from the CSV to match our expected format
             historical_df = historical_df.rename(columns={
                 'pres-ID-001_feed': 'pressure',
                 'flow-ID-001_feed': 'flow_rate',
-                'location': 'site_name'
+                'location': 'site_name',
+                'elect-ID-001_feed': 'conductivity'
             })
-            
-            # Convert Date and Time columns to timestamp
-            historical_df['timestamp'] = pd.to_datetime(
-                historical_df['Date'] + ' ' + historical_df['Time'],
-                format='%d/%m/%Y %H:%M:%S',
-                dayfirst=True
-            )
             
             # Calculate recovery rate from available metrics
             historical_df['recovery_rate'] = (
@@ -59,9 +57,6 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
                 }
                 historical_df['latitude'] = historical_df['site_name'].map(lambda x: site_coords.get(x.lower(), (0, 0))[0])
                 historical_df['longitude'] = historical_df['site_name'].map(lambda x: site_coords.get(x.lower(), (0, 0))[1])
-            
-            if 'conductivity' not in historical_df.columns:
-                historical_df['conductivity'] = historical_df['elect-ID-001_feed']
             
             if 'temperature' not in historical_df.columns:
                 historical_df['temperature'] = np.nan
