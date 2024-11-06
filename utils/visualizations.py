@@ -5,6 +5,11 @@ from folium import plugins
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def create_world_map(sites_data):
     """Create interactive world map with site markers"""
@@ -31,24 +36,26 @@ def create_world_map(sites_data):
         raise Exception(f"Error creating world map: {str(e)}")
 
 def create_kpi_trends(df, site_name):
-    """Create KPI trend visualizations with daily aggregation"""
     try:
-        if df.empty:
-            raise ValueError("No data available for visualization")
-            
-        site_df = df[df['site_name'] == site_name].copy()
+        # Debug logging
+        logger.info(f"Total records before filtering: {len(df)}")
         
-        if site_df.empty:
-            raise ValueError(f"No data available for site: {site_name}")
+        site_df = df[df['site_name'] == site_name].copy()
+        logger.info(f"Records for site {site_name}: {len(site_df)}")
         
         # Ensure timestamp is datetime
         site_df['timestamp'] = pd.to_datetime(site_df['timestamp'])
         
-        # Daily aggregation
+        # Print date range
+        logger.info(f"Date range: {site_df['timestamp'].min()} to {site_df['timestamp'].max()}")
+        
+        # Daily aggregation without any additional filtering
         daily_metrics = site_df.groupby(site_df['timestamp'].dt.date).agg({
             'recovery_rate': 'mean',
             'flow_rate': 'mean'
         }).reset_index()
+        
+        logger.info(f"Daily aggregated points: {len(daily_metrics)}")
         
         # Convert date back to datetime for proper plotting
         daily_metrics['timestamp'] = pd.to_datetime(daily_metrics['timestamp'])
@@ -71,8 +78,7 @@ def create_kpi_trends(df, site_name):
             xaxis=dict(
                 type='date',
                 tickformat='%Y-%m-%d',
-                tickmode='auto',
-                nticks=10,
+                dtick='D1',  # Show daily ticks
                 showgrid=True
             ),
             yaxis=dict(showgrid=True),
@@ -98,8 +104,7 @@ def create_kpi_trends(df, site_name):
             xaxis=dict(
                 type='date',
                 tickformat='%Y-%m-%d',
-                tickmode='auto',
-                nticks=10,
+                dtick='D1',  # Show daily ticks
                 showgrid=True
             ),
             yaxis=dict(showgrid=True),
@@ -108,7 +113,9 @@ def create_kpi_trends(df, site_name):
         )
         
         return fig_recovery, fig_flow
+        
     except Exception as e:
+        logger.error(f"Error in create_kpi_trends: {str(e)}")
         raise Exception(f"Error creating KPI trends: {str(e)}")
 
 def create_performance_gauge(value, title):
