@@ -24,12 +24,23 @@ class MaintenancePredictor:
             if param in data.columns:
                 rolling_mean = data[param].rolling(window=window_size).mean()
                 rolling_std = data[param].rolling(window=window_size).std()
-                trends[param] = {
-                    'current_value': data[param].iloc[-1],
-                    'mean': rolling_mean.iloc[-1],
-                    'std': rolling_std.iloc[-1],
-                    'trend': (rolling_mean.iloc[-1] - rolling_mean.iloc[-window_size]) / window_size
-                }
+                
+                # Handle case when there's not enough data points
+                if len(rolling_mean) < window_size:
+                    trends[param] = {
+                        'current_value': data[param].iloc[-1] if not data[param].empty else 0,
+                        'mean': rolling_mean.iloc[-1] if not rolling_mean.empty else 0,
+                        'std': rolling_std.iloc[-1] if not rolling_std.empty else 0,
+                        'trend': 0  # Set trend to 0 when insufficient data
+                    }
+                else:
+                    # Calculate trend only when we have enough data points
+                    trends[param] = {
+                        'current_value': data[param].iloc[-1],
+                        'mean': rolling_mean.iloc[-1],
+                        'std': rolling_std.iloc[-1],
+                        'trend': (rolling_mean.iloc[-1] - rolling_mean.iloc[-window_size]) / window_size
+                    }
         return trends
 
     def analyze_site_data(self, site_data):
