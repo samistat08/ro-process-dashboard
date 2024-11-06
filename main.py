@@ -31,27 +31,35 @@ def main():
     st.sidebar.subheader("Time Filter")
     use_time_filter = st.sidebar.checkbox("Enable Time Filter")
     
-    start_date = None
-    end_date = None
+    start_datetime = None
+    end_datetime = None
     
-    if use_time_filter:
-        col1, col2 = st.sidebar.columns(2)
-        with col1:
-            start_date = st.date_input("Start Date", 
-                                     value=datetime.now() - timedelta(days=7),
-                                     max_value=datetime.now())
-        with col2:
-            end_date = st.date_input("End Date", 
-                                   value=datetime.now(),
-                                   max_value=datetime.now())
-        
-        if start_date > end_date:
-            st.sidebar.error("Start date must be before end date")
-            return
+    try:
+        if use_time_filter:
+            col1, col2 = st.sidebar.columns(2)
+            with col1:
+                start_date = st.date_input(
+                    "Start Date",
+                    value=datetime.now() - timedelta(days=7),
+                    max_value=datetime.now()
+                )
+            with col2:
+                end_date = st.date_input(
+                    "End Date",
+                    value=datetime.now(),
+                    max_value=datetime.now()
+                )
             
-        # Convert to datetime
-        start_date = datetime.combine(start_date, datetime.min.time())
-        end_date = datetime.combine(end_date, datetime.max.time())
+            if start_date > end_date:
+                st.sidebar.error("Start date must be before end date")
+                return
+            
+            # Convert to datetime with time component
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+    except Exception as e:
+        st.sidebar.error(f"Error setting date range: {str(e)}")
+        return
     
     # Initialize last_refresh in session state
     if 'last_refresh' not in st.session_state:
@@ -67,7 +75,11 @@ def main():
     
     # Load and process data
     try:
-        df = load_data(use_real_time=True, start_date=start_date, end_date=end_date)
+        df = load_data(use_real_time=True, start_date=start_datetime, end_date=end_datetime)
+        if df.empty:
+            st.warning("No data available for the selected time range")
+            return
+            
         sites_data = process_site_data(df)
         
         # Create two columns for layout
@@ -90,7 +102,7 @@ def main():
             
             # Display time range
             if use_time_filter:
-                st.info(f"Showing data from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+                st.info(f"Showing data from {start_datetime.strftime('%Y-%m-%d %H:%M')} to {end_datetime.strftime('%Y-%m-%d %H:%M')}")
             
             # Last updated timestamp
             st.text(f"Last Updated: {df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')}")

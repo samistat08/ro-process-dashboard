@@ -4,6 +4,7 @@ import folium
 from folium import plugins
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 def create_world_map(sites_data):
     """Create interactive world map with site markers"""
@@ -32,28 +33,36 @@ def create_world_map(sites_data):
 def create_kpi_trends(df, site_name):
     """Create KPI trend visualizations with daily aggregation"""
     try:
+        if df.empty:
+            raise ValueError("No data available for visualization")
+            
         site_df = df[df['site_name'] == site_name].copy()
         
-        # Convert timestamp to date for daily aggregation
-        site_df['date'] = pd.to_datetime(site_df['timestamp']).dt.date
+        if site_df.empty:
+            raise ValueError(f"No data available for site: {site_name}")
+            
+        # Ensure timestamp is datetime
+        site_df['timestamp'] = pd.to_datetime(site_df['timestamp'])
         
-        # Daily aggregation
-        daily_metrics = site_df.groupby('date').agg({
+        # Daily aggregation using timestamp
+        daily_metrics = site_df.groupby(site_df['timestamp'].dt.date).agg({
             'recovery_rate': 'mean',
             'pressure': 'mean',
             'flow_rate': 'mean',
-            'temperature': 'mean'
+            'temperature': 'mean',
+            'timestamp': 'last'  # Keep the last timestamp for proper time reference
         }).reset_index()
         
-        # Convert date back to datetime for better plotting
-        daily_metrics['date'] = pd.to_datetime(daily_metrics['date'])
+        # Ensure we have enough data points for visualization
+        if len(daily_metrics) < 2:
+            raise ValueError("Insufficient data points for trend visualization")
         
         # Recovery Rate Trend with smoothed line
         fig_recovery = go.Figure()
         
         # Add scatter points for actual values
         fig_recovery.add_trace(go.Scatter(
-            x=daily_metrics['date'],
+            x=daily_metrics['timestamp'],
             y=daily_metrics['recovery_rate'],
             mode='markers',
             name='Daily Values',
@@ -62,7 +71,7 @@ def create_kpi_trends(df, site_name):
         
         # Add smoothed line
         fig_recovery.add_trace(go.Scatter(
-            x=daily_metrics['date'],
+            x=daily_metrics['timestamp'],
             y=daily_metrics['recovery_rate'].rolling(window=3, min_periods=1).mean(),
             mode='lines',
             name='Trend',
@@ -84,6 +93,10 @@ def create_kpi_trends(df, site_name):
         # Pressure vs Flow Rate with daily averages
         fig_pressure_flow = go.Figure()
         
+        # Create color scale based on timestamps
+        timestamp_nums = [(t - daily_metrics['timestamp'].min()).total_seconds() 
+                         for t in daily_metrics['timestamp']]
+        
         fig_pressure_flow.add_trace(go.Scatter(
             x=daily_metrics['pressure'],
             y=daily_metrics['flow_rate'],
@@ -91,7 +104,7 @@ def create_kpi_trends(df, site_name):
             name='Daily Average',
             marker=dict(
                 size=10,
-                color=list(range(len(daily_metrics))),  # Convert range to list
+                color=timestamp_nums,  # Use numerical timestamps for color
                 colorscale='Viridis',
                 showscale=True,
                 colorbar=dict(title='Time Progress')
