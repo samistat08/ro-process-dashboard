@@ -17,20 +17,23 @@ def create_world_map(sites_data):
         center_lon = sites_data['longitude'].mean()
         m = folium.Map(location=[center_lat, center_lon], zoom_start=2)
         
-        # Add site markers
+        # Add site markers with updated flow rate columns
         for _, site in sites_data.iterrows():
             folium.Marker(
                 location=[site['latitude'], site['longitude']],
                 popup=f"""
                     <b>{site['site_name']}</b><br>
                     Recovery Rate: {site['recovery_rate']:.1f}%<br>
-                    Flow Rate: {site['flow_rate']:.1f} m³/h
+                    Feed Flow: {site['flow-ID-001_feed']:.1f} m³/h<br>
+                    Product Flow: {site['flow-ID-001_product']:.1f} m³/h<br>
+                    Waste Flow: {site['flow-ID-001_waste']:.1f} m³/h
                 """,
                 icon=folium.Icon(color='blue', icon='info-sign')
             ).add_to(m)
         
         return m
     except Exception as e:
+        logger.error(f"Error in create_world_map: {str(e)}")
         raise Exception(f"Error creating world map: {str(e)}")
 
 def create_kpi_trends(df, site_name):
@@ -52,10 +55,6 @@ def create_kpi_trends(df, site_name):
         
         # Remove any NaN values
         daily_metrics = daily_metrics.dropna()
-        
-        # Debug print
-        print(f"Number of data points: {len(daily_metrics)}")
-        print("Date range:", daily_metrics['timestamp'].min(), "to", daily_metrics['timestamp'].max())
         
         # Create Recovery Rate trend plot
         fig_recovery = go.Figure()

@@ -12,7 +12,9 @@ class MaintenancePredictor:
         # Define thresholds for different parameters
         self.thresholds = {
             'pressure': {'low': 55, 'high': 75, 'trend_threshold': 0.5},
-            'flow_rate': {'low': 105, 'high': 125, 'trend_threshold': 0.3},
+            'flow-ID-001_feed': {'low': 105, 'high': 125, 'trend_threshold': 0.3},
+            'flow-ID-001_product': {'low': 70, 'high': 100, 'trend_threshold': 0.3},
+            'flow-ID-001_waste': {'low': 20, 'high': 40, 'trend_threshold': 0.3},
             'conductivity': {'low': 420, 'high': 490, 'trend_threshold': 2.0},
             'recovery_rate': {'low': 70, 'high': 80, 'trend_threshold': 0.5}
         }
@@ -51,6 +53,9 @@ class MaintenancePredictor:
         trends = self.calculate_trends(site_data)
         
         for param, trend_data in trends.items():
+            if param not in self.thresholds:
+                continue
+                
             thresholds = self.thresholds[param]
             current_value = trend_data['current_value']
             trend = trend_data['trend']
@@ -60,15 +65,15 @@ class MaintenancePredictor:
                 alerts.append({
                     'parameter': param,
                     'severity': 'high',
-                    'message': f'Low {param}: {current_value:.1f}',
-                    'recommendation': f'Check {param} sensors and control systems'
+                    'message': f'Low {param.replace("_", " ").title()}: {current_value:.1f}',
+                    'recommendation': f'Check {param.replace("_", " ").lower()} sensors and control systems'
                 })
             elif current_value > thresholds['high']:
                 alerts.append({
                     'parameter': param,
                     'severity': 'high',
-                    'message': f'High {param}: {current_value:.1f}',
-                    'recommendation': f'Verify {param} control systems and membrane condition'
+                    'message': f'High {param.replace("_", " ").title()}: {current_value:.1f}',
+                    'recommendation': f'Verify {param.replace("_", " ").lower()} control systems and membrane condition'
                 })
             
             # Check for concerning trends
@@ -78,39 +83,43 @@ class MaintenancePredictor:
                     'parameter': param,
                     'severity': 'medium',
                     'message': f'{param.replace("_", " ").title()} is {trend_direction} rapidly',
-                    'recommendation': f'Monitor {param} trend and schedule preventive maintenance'
+                    'recommendation': f'Monitor {param.replace("_", " ").lower()} trend and schedule preventive maintenance'
                 })
         
         return alerts
 
     def predict_maintenance_needs(self, site_data):
         """Predict maintenance needs based on historical data"""
-        alerts = self.analyze_site_data(site_data)
-        
-        if not alerts:
-            return {
-                'status': 'normal',
-                'alerts': [],
-                'next_maintenance': datetime.now() + timedelta(days=30)
-            }
-        
-        # Calculate maintenance urgency based on number and severity of alerts
-        severity_scores = {'high': 3, 'medium': 2, 'low': 1}
-        total_score = sum(severity_scores[alert['severity']] for alert in alerts)
-        
-        # Determine next maintenance date based on severity score
-        if total_score >= 5:
-            next_maintenance = datetime.now() + timedelta(days=7)
-            status = 'critical'
-        elif total_score >= 3:
-            next_maintenance = datetime.now() + timedelta(days=14)
-            status = 'warning'
-        else:
-            next_maintenance = datetime.now() + timedelta(days=21)
-            status = 'attention'
+        try:
+            alerts = self.analyze_site_data(site_data)
             
-        return {
-            'status': status,
-            'alerts': alerts,
-            'next_maintenance': next_maintenance
-        }
+            if not alerts:
+                return {
+                    'status': 'normal',
+                    'alerts': [],
+                    'next_maintenance': datetime.now() + timedelta(days=30)
+                }
+            
+            # Calculate maintenance urgency based on number and severity of alerts
+            severity_scores = {'high': 3, 'medium': 2, 'low': 1}
+            total_score = sum(severity_scores[alert['severity']] for alert in alerts)
+            
+            # Determine next maintenance date based on severity score
+            if total_score >= 5:
+                next_maintenance = datetime.now() + timedelta(days=7)
+                status = 'critical'
+            elif total_score >= 3:
+                next_maintenance = datetime.now() + timedelta(days=14)
+                status = 'warning'
+            else:
+                next_maintenance = datetime.now() + timedelta(days=21)
+                status = 'attention'
+                
+            return {
+                'status': status,
+                'alerts': alerts,
+                'next_maintenance': next_maintenance
+            }
+        except Exception as e:
+            logger.error(f"Error in predict_maintenance_needs: {str(e)}")
+            raise
