@@ -41,13 +41,13 @@ def render_site_details():
     
     # Trend Analysis
     st.subheader("Trend Analysis")
-    fig_recovery, fig_pressure_flow = create_kpi_trends(df, site_name)
+    fig_recovery, fig_flow = create_kpi_trends(df, site_name)
     
     col1, col2 = st.columns(2)
     with col1:
         st.plotly_chart(fig_recovery)
     with col2:
-        st.plotly_chart(fig_pressure_flow)
+        st.plotly_chart(fig_flow)
 
 if __name__ == "__main__":
     render_site_details()

@@ -47,110 +47,59 @@ def create_kpi_trends(df, site_name):
         # Daily aggregation
         daily_metrics = site_df.groupby(site_df['timestamp'].dt.date).agg({
             'recovery_rate': 'mean',
-            'pressure': 'mean',
-            'flow_rate': 'mean',
-            'temperature': 'mean'
+            'flow_rate': 'mean'
         }).reset_index()
         
-        # If we have less than 2 points, duplicate the last point
-        if len(daily_metrics) == 1:
-            last_point = daily_metrics.iloc[-1].copy()
-            new_date = last_point['timestamp'] + pd.Timedelta(days=1)
-            last_point['timestamp'] = new_date
-            daily_metrics = pd.concat([daily_metrics, pd.DataFrame([last_point])], ignore_index=True)
-        
-        # Convert date column to datetime for proper plotting
+        # Convert timestamp to datetime for proper plotting
         daily_metrics['timestamp'] = pd.to_datetime(daily_metrics['timestamp'])
         
-        # Recovery Rate Trend with smoothed line
+        # Create Recovery Rate trend plot
         fig_recovery = go.Figure()
-        
-        # Add scatter points for actual values
         fig_recovery.add_trace(go.Scatter(
             x=daily_metrics['timestamp'],
             y=daily_metrics['recovery_rate'],
-            mode='markers',
+            mode='lines+markers',
             name='Daily Values',
-            marker=dict(
-                size=8,
-                color=list(range(len(daily_metrics))),  # Use sequential integers for color
-                colorscale='Viridis',
-                showscale=True,
-                colorbar=dict(title='Time Progression')
-            )
-        ))
-        
-        # Update smoothing window based on available data
-        smoothing_window = min(3, len(daily_metrics))
-        if smoothing_window > 0:
-            smoothed_values = daily_metrics['recovery_rate'].rolling(
-                window=smoothing_window, 
-                min_periods=1
-            ).mean()
-        else:
-            smoothed_values = daily_metrics['recovery_rate']
-        
-        # Add smoothed line
-        fig_recovery.add_trace(go.Scatter(
-            x=daily_metrics['timestamp'],
-            y=smoothed_values,
-            mode='lines',
-            name='Trend',
-            line=dict(width=3, smoothing=1.3)
+            line=dict(width=2),
+            marker=dict(size=6)
         ))
         
         fig_recovery.update_layout(
-            title='Recovery Rate Trend (Daily Average)',
+            title='Recovery Rate Trend',
             xaxis_title='Date',
             yaxis_title='Recovery Rate (%)',
-            hovermode='x unified',
             xaxis=dict(
                 tickformat='%Y-%m-%d',
                 tickmode='auto',
                 nticks=10
-            )
+            ),
+            hovermode='x unified'
         )
         
-        # Pressure vs Flow Rate with daily averages
-        fig_pressure_flow = go.Figure()
-        
-        # Add scatter points with time-based coloring
-        fig_pressure_flow.add_trace(go.Scatter(
-            x=daily_metrics['pressure'],
+        # Create Flow Rate trend plot
+        fig_flow = go.Figure()
+        fig_flow.add_trace(go.Scatter(
+            x=daily_metrics['timestamp'],
             y=daily_metrics['flow_rate'],
-            mode='markers',
-            name='Daily Average',
-            marker=dict(
-                size=10,
-                color=list(range(len(daily_metrics))),  # Use sequential integers for color
-                colorscale='Viridis',
-                showscale=True,
-                colorbar=dict(title='Time Progression')
-            )
+            mode='lines+markers',
+            name='Daily Values',
+            line=dict(width=2),
+            marker=dict(size=6)
         ))
         
-        # Add trendline if we have enough points
-        if len(daily_metrics) >= 2:
-            z = np.polyfit(daily_metrics['pressure'], daily_metrics['flow_rate'], 1)
-            p = np.poly1d(z)
-            x_range = np.linspace(daily_metrics['pressure'].min(), daily_metrics['pressure'].max(), 100)
-            
-            fig_pressure_flow.add_trace(go.Scatter(
-                x=x_range,
-                y=p(x_range),
-                mode='lines',
-                name='Trend Line',
-                line=dict(color='red', dash='dash')
-            ))
-        
-        fig_pressure_flow.update_layout(
-            title='Pressure vs Flow Rate (Daily Average)',
-            xaxis_title='Pressure (bar)',
+        fig_flow.update_layout(
+            title='Flow Rate Trend',
+            xaxis_title='Date',
             yaxis_title='Flow Rate (m³/h)',
-            hovermode='closest'
+            xaxis=dict(
+                tickformat='%Y-%m-%d',
+                tickmode='auto',
+                nticks=10
+            ),
+            hovermode='x unified'
         )
         
-        return fig_recovery, fig_pressure_flow
+        return fig_recovery, fig_flow
     except Exception as e:
         raise Exception(f"Error creating KPI trends: {str(e)}")
 
