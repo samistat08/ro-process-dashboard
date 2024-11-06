@@ -27,8 +27,20 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
                 'elect-ID-001_feed': historical_df['elect-ID-001_feed'].median()
             })
             
-            # Use the datetime column directly
-            historical_df['timestamp'] = pd.to_datetime(historical_df['datetime'])
+            # Handle datetime parsing with error handling
+            try:
+                # Clean datetime values before parsing
+                historical_df['datetime'] = historical_df['datetime'].replace('#VALUE!', pd.NaT)
+                historical_df['timestamp'] = pd.to_datetime(
+                    historical_df['datetime'],
+                    format='%d/%m/%Y %H:%M:%S',  # Specify the correct date format
+                    dayfirst=True  # Ensure day is read before month
+                )
+            except ValueError as e:
+                logger.error(f"Error parsing datetime: {str(e)}")
+                logger.info("Sample datetime values:")
+                logger.info(historical_df['datetime'].head())
+                raise ValueError(f"Error parsing datetime values: {str(e)}")
             
             # Convert the specific columns from the CSV to match our expected format
             historical_df = historical_df.rename(columns={
@@ -60,6 +72,9 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
             
             if 'temperature' not in historical_df.columns:
                 historical_df['temperature'] = np.nan
+
+            # Remove any rows with invalid timestamps
+            historical_df = historical_df.dropna(subset=['timestamp'])
 
         except FileNotFoundError:
             logger.warning("Historical data file not found")
