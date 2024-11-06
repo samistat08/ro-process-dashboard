@@ -44,11 +44,7 @@ def create_kpi_trends(df, site_name):
         # Ensure timestamp is datetime
         site_df['timestamp'] = pd.to_datetime(site_df['timestamp'])
         
-        # Filter last 90 days of data
-        cutoff_date = datetime.now() - timedelta(days=90)
-        site_df = site_df[site_df['timestamp'] >= cutoff_date]
-        
-        # Daily aggregation using timestamp
+        # Daily aggregation
         daily_metrics = site_df.groupby(site_df['timestamp'].dt.date).agg({
             'recovery_rate': 'mean',
             'pressure': 'mean',
@@ -56,38 +52,48 @@ def create_kpi_trends(df, site_name):
             'temperature': 'mean'
         }).reset_index()
         
-        # Rename the date column
-        daily_metrics = daily_metrics.rename(columns={'timestamp': 'date'})
+        # If we have less than 2 points, duplicate the last point
+        if len(daily_metrics) == 1:
+            last_point = daily_metrics.iloc[-1].copy()
+            new_date = last_point['timestamp'] + pd.Timedelta(days=1)
+            last_point['timestamp'] = new_date
+            daily_metrics = pd.concat([daily_metrics, pd.DataFrame([last_point])], ignore_index=True)
         
-        # Convert date back to datetime for proper plotting
-        daily_metrics['date'] = pd.to_datetime(daily_metrics['date'])
-        
-        # Ensure we have enough data points for visualization
-        if len(daily_metrics) < 2:
-            raise ValueError("Insufficient data points for trend visualization")
+        # Convert date column to datetime for proper plotting
+        daily_metrics['timestamp'] = pd.to_datetime(daily_metrics['timestamp'])
         
         # Recovery Rate Trend with smoothed line
         fig_recovery = go.Figure()
         
         # Add scatter points for actual values
         fig_recovery.add_trace(go.Scatter(
-            x=daily_metrics['date'],
+            x=daily_metrics['timestamp'],
             y=daily_metrics['recovery_rate'],
             mode='markers',
             name='Daily Values',
             marker=dict(
                 size=8,
-                color=daily_metrics.index,
+                color=list(range(len(daily_metrics))),  # Use sequential integers for color
                 colorscale='Viridis',
                 showscale=True,
                 colorbar=dict(title='Time Progression')
             )
         ))
         
+        # Update smoothing window based on available data
+        smoothing_window = min(3, len(daily_metrics))
+        if smoothing_window > 0:
+            smoothed_values = daily_metrics['recovery_rate'].rolling(
+                window=smoothing_window, 
+                min_periods=1
+            ).mean()
+        else:
+            smoothed_values = daily_metrics['recovery_rate']
+        
         # Add smoothed line
         fig_recovery.add_trace(go.Scatter(
-            x=daily_metrics['date'],
-            y=daily_metrics['recovery_rate'].rolling(window=3, min_periods=1).mean(),
+            x=daily_metrics['timestamp'],
+            y=smoothed_values,
             mode='lines',
             name='Trend',
             line=dict(width=3, smoothing=1.3)
@@ -116,25 +122,26 @@ def create_kpi_trends(df, site_name):
             name='Daily Average',
             marker=dict(
                 size=10,
-                color=daily_metrics.index,
+                color=list(range(len(daily_metrics))),  # Use sequential integers for color
                 colorscale='Viridis',
                 showscale=True,
                 colorbar=dict(title='Time Progression')
             )
         ))
         
-        # Add trendline
-        z = np.polyfit(daily_metrics['pressure'], daily_metrics['flow_rate'], 1)
-        p = np.poly1d(z)
-        x_range = np.linspace(daily_metrics['pressure'].min(), daily_metrics['pressure'].max(), 100)
-        
-        fig_pressure_flow.add_trace(go.Scatter(
-            x=x_range,
-            y=p(x_range),
-            mode='lines',
-            name='Trend Line',
-            line=dict(color='red', dash='dash')
-        ))
+        # Add trendline if we have enough points
+        if len(daily_metrics) >= 2:
+            z = np.polyfit(daily_metrics['pressure'], daily_metrics['flow_rate'], 1)
+            p = np.poly1d(z)
+            x_range = np.linspace(daily_metrics['pressure'].min(), daily_metrics['pressure'].max(), 100)
+            
+            fig_pressure_flow.add_trace(go.Scatter(
+                x=x_range,
+                y=p(x_range),
+                mode='lines',
+                name='Trend Line',
+                line=dict(color='red', dash='dash')
+            ))
         
         fig_pressure_flow.update_layout(
             title='Pressure vs Flow Rate (Daily Average)',
