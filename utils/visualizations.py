@@ -91,7 +91,7 @@ def create_kpi_trends(df, site_name):
             name='Daily Average',
             marker=dict(
                 size=10,
-                color=range(len(daily_metrics)),
+                color=list(range(len(daily_metrics))),  # Convert range to list
                 colorscale='Viridis',
                 showscale=True,
                 colorbar=dict(title='Time Progress')
