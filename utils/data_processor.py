@@ -19,6 +19,13 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
             historical_df = pd.read_csv('data/sample_ro_data.csv')
             historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
             
+            # Convert old flow_rate column to new format if it exists
+            if 'flow_rate' in historical_df.columns:
+                historical_df['flow-ID-001_feed'] = historical_df['flow_rate']
+                historical_df['flow-ID-001_product'] = historical_df['flow_rate'] * 0.75
+                historical_df['flow-ID-001_waste'] = historical_df['flow_rate'] * 0.25
+                historical_df.drop('flow_rate', axis=1, inplace=True)
+            
         except FileNotFoundError:
             logger.warning("Historical data file not found")
             raise
@@ -61,7 +68,9 @@ def process_site_data(df):
     """Process and aggregate site-level data"""
     site_data = df.groupby(['site_id', 'site_name', 'latitude', 'longitude']).agg({
         'pressure': 'mean',
-        'flow_rate': 'mean',
+        'flow-ID-001_feed': 'mean',
+        'flow-ID-001_product': 'mean',
+        'flow-ID-001_waste': 'mean',
         'conductivity': 'mean',
         'temperature': 'mean',
         'recovery_rate': 'mean',
@@ -77,7 +86,7 @@ def calculate_kpis(df, site_name):
     kpis = {
         'avg_recovery': site_df['recovery_rate'].mean(),
         'avg_pressure': site_df['pressure'].mean(),
-        'avg_flow': site_df['flow_rate'].mean(),
+        'avg_flow': site_df['flow-ID-001_feed'].mean(),
         'efficiency_score': calculate_efficiency_score(site_df),
         'last_updated': site_df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S'),
         'date_range': f"{site_df['timestamp'].min().strftime('%Y-%m-%d')} to {site_df['timestamp'].max().strftime('%Y-%m-%d')}"

@@ -20,7 +20,9 @@ class RODataSimulator:
         if self.anomaly_counters[site_id] > 80:  # High pressure scenario
             base_values['pressure'] *= 1.2
         elif self.anomaly_counters[site_id] > 60:  # Low flow rate scenario
-            base_values['flow_rate'] *= 0.8
+            base_values['flow-ID-001_feed'] *= 0.8
+            base_values['flow-ID-001_product'] *= 0.8
+            base_values['flow-ID-001_waste'] *= 0.8
         elif self.anomaly_counters[site_id] > 40:  # High conductivity scenario
             base_values['conductivity'] *= 1.15
             
@@ -33,10 +35,20 @@ class RODataSimulator:
         # Generate data for each site
         rows = []
         for _, site in self.sites.iterrows():
+            # Base flow rate for calculations
+            base_flow = np.random.normal(118, 3)
+            
+            # Calculate different flow rates maintaining mass balance
+            feed_flow = base_flow
+            product_flow = base_flow * 0.75  # Assuming 75% recovery
+            waste_flow = feed_flow - product_flow
+            
             # Add random variations to base metrics
             base_values = {
                 'pressure': np.random.normal(65, 2),  # Normal distribution around 65 bar
-                'flow_rate': np.random.normal(118, 3),  # Normal distribution around 118 m³/h
+                'flow-ID-001_feed': feed_flow,
+                'flow-ID-001_product': product_flow,
+                'flow-ID-001_waste': waste_flow,
                 'conductivity': np.random.normal(460, 15),  # Normal distribution around 460 µS/cm
                 'temperature': np.random.normal(25, 1.5),  # Normal distribution around 25°C
                 'recovery_rate': np.random.normal(75, 2)  # Normal distribution around 75%
@@ -53,7 +65,9 @@ class RODataSimulator:
                 'latitude': site['latitude'],
                 'longitude': site['longitude'],
                 'pressure': max(min(base_values['pressure'], 80), 50),
-                'flow_rate': max(min(base_values['flow_rate'], 130), 100),
+                'flow-ID-001_feed': max(min(base_values['flow-ID-001_feed'], 130), 100),
+                'flow-ID-001_product': max(min(base_values['flow-ID-001_product'], 100), 70),
+                'flow-ID-001_waste': max(min(base_values['flow-ID-001_waste'], 40), 20),
                 'conductivity': max(min(base_values['conductivity'], 500), 400),
                 'temperature': max(min(base_values['temperature'], 30), 20),
                 'recovery_rate': max(min(base_values['recovery_rate'], 85), 65)

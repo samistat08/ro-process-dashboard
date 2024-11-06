@@ -44,8 +44,10 @@ def create_kpi_trends(df, site_name):
         
         # Daily aggregation using pd.Grouper
         daily_metrics = site_df.groupby(pd.Grouper(key='timestamp', freq='D')).agg({
-            'recovery_rate': 'mean',
-            'flow_rate': 'mean'
+            'flow-ID-001_feed': 'mean',    # Feed water flow
+            'flow-ID-001_product': 'mean', # Product water flow
+            'flow-ID-001_waste': 'mean',   # Waste water flow
+            'recovery_rate': 'mean'
         }).reset_index()
         
         # Remove any NaN values
@@ -85,19 +87,41 @@ def create_kpi_trends(df, site_name):
             height=400
         )
         
-        # Create Flow Rate trend plot
+        # Create combined Flow Rate trend plot
         fig_flow = go.Figure()
+
+        # Add Feed Flow
         fig_flow.add_trace(go.Scatter(
             x=daily_metrics['timestamp'],
-            y=daily_metrics['flow_rate'],
+            y=daily_metrics['flow-ID-001_feed'],
             mode='lines+markers',
-            name='Flow Rate',
+            name='Feed Flow',
+            line=dict(color='blue', width=2),
+            marker=dict(size=6)
+        ))
+
+        # Add Product Flow
+        fig_flow.add_trace(go.Scatter(
+            x=daily_metrics['timestamp'],
+            y=daily_metrics['flow-ID-001_product'],
+            mode='lines+markers',
+            name='Product Flow',
             line=dict(color='green', width=2),
             marker=dict(size=6)
         ))
-        
+
+        # Add Waste Flow
+        fig_flow.add_trace(go.Scatter(
+            x=daily_metrics['timestamp'],
+            y=daily_metrics['flow-ID-001_waste'],
+            mode='lines+markers',
+            name='Waste Flow',
+            line=dict(color='red', width=2),
+            marker=dict(size=6)
+        ))
+
         fig_flow.update_layout(
-            title='Daily Average Flow Rate',
+            title='Daily Average Flow Rates',
             xaxis_title='Date',
             yaxis_title='Flow Rate (m³/h)',
             xaxis=dict(
@@ -112,7 +136,13 @@ def create_kpi_trends(df, site_name):
             yaxis=dict(showgrid=True),
             showlegend=True,
             hovermode='x unified',
-            height=400
+            height=400,
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01
+            )
         )
         
         return fig_recovery, fig_flow
