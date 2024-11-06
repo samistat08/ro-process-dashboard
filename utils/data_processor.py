@@ -5,48 +5,47 @@ from datetime import datetime, timedelta
 def load_data(use_real_time=True, start_date=None, end_date=None):
     """Load and validate RO process data"""
     try:
-        # Load real-time data first
+        # Initialize empty DataFrames
+        historical_df = pd.DataFrame()
+        real_time_df = pd.DataFrame()
+
+        # Load real-time data if enabled
         if use_real_time:
             try:
-                real_time_df = pd.read_csv('data/real_time_data.csv', parse_dates=['timestamp'])
+                real_time_df = pd.read_csv('data/real_time_data.csv')
+                if 'timestamp' in real_time_df.columns:
+                    real_time_df['timestamp'] = pd.to_datetime(real_time_df['timestamp'])
             except FileNotFoundError:
-                real_time_df = pd.DataFrame()
+                pass
 
-        # Load historical data from sensor_data_output
+        # Load historical data
         try:
-            # Read the CSV file
             historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv')
             
-            # Ensure date and time columns exist and handle them properly
+            # Handle date and time columns
             if 'date' in historical_df.columns and 'time' in historical_df.columns:
-                # Convert date and time to proper format first
+                # Convert date and time to proper format
                 historical_df['date'] = pd.to_datetime(historical_df['date']).dt.strftime('%Y-%m-%d')
                 historical_df['time'] = pd.to_datetime(historical_df['time'], format='%H:%M:%S').dt.strftime('%H:%M:%S')
-                # Combine date and time
+                # Combine date and time into timestamp
                 historical_df['timestamp'] = pd.to_datetime(historical_df['date'] + ' ' + historical_df['time'])
+                # Drop original date and time columns
+                historical_df = historical_df.drop(['date', 'time'], axis=1)
             elif 'timestamp' in historical_df.columns:
                 historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
             else:
                 raise ValueError("No valid timestamp columns found in historical data")
-                
         except FileNotFoundError:
-            historical_df = pd.DataFrame()
+            raise ValueError("Historical data file not found")
 
         # Combine real-time and historical data if both exist
         if not historical_df.empty and not real_time_df.empty and use_real_time:
             df = pd.concat([historical_df, real_time_df], ignore_index=True)
-        elif not historical_df.empty:
-            df = historical_df
-        elif not real_time_df.empty and use_real_time:
-            df = real_time_df
         else:
-            # Fallback to sample data if no other data is available
-            df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
+            df = historical_df
 
-        # Remove duplicates based on timestamp and site_id
+        # Remove duplicates and sort
         df = df.drop_duplicates(subset=['timestamp', 'site_id'])
-        
-        # Sort by timestamp
         df = df.sort_values('timestamp')
         
         # Apply time filtering if dates are provided
@@ -57,20 +56,22 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
             end_date = pd.to_datetime(end_date)
             df = df[df['timestamp'] <= end_date]
             
+        if df.empty:
+            raise ValueError("No data available for the specified time range")
+            
         return df
     except Exception as e:
         raise Exception(f"Error loading data: {str(e)}")
 
 def process_site_data(df):
     """Process and aggregate site-level data"""
-    # Group by site and calculate latest metrics
     site_data = df.groupby(['site_id', 'site_name', 'latitude', 'longitude']).agg({
         'pressure': 'mean',
         'flow_rate': 'mean',
         'conductivity': 'mean',
         'temperature': 'mean',
         'recovery_rate': 'mean',
-        'timestamp': 'max'  # Keep track of latest timestamp
+        'timestamp': 'max'
     }).reset_index()
     
     return site_data
@@ -92,7 +93,6 @@ def calculate_kpis(df, site_name):
 
 def calculate_efficiency_score(site_df):
     """Calculate overall efficiency score"""
-    # Normalized score based on recovery rate and pressure efficiency
     recovery_weight = 0.6
     pressure_weight = 0.4
     

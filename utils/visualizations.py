@@ -50,7 +50,7 @@ def create_kpi_trends(df, site_name):
             'flow_rate': 'mean'
         }).reset_index()
         
-        # Convert timestamp to datetime for proper plotting
+        # Convert date back to datetime for proper plotting
         daily_metrics['timestamp'] = pd.to_datetime(daily_metrics['timestamp'])
         
         # Create Recovery Rate trend plot
@@ -59,20 +59,24 @@ def create_kpi_trends(df, site_name):
             x=daily_metrics['timestamp'],
             y=daily_metrics['recovery_rate'],
             mode='lines+markers',
-            name='Daily Values',
-            line=dict(width=2),
-            marker=dict(size=6)
+            name='Recovery Rate',
+            line=dict(color='blue', width=2),
+            marker=dict(color='blue', size=8)
         ))
         
         fig_recovery.update_layout(
-            title='Recovery Rate Trend',
+            title='Daily Average Recovery Rate',
             xaxis_title='Date',
             yaxis_title='Recovery Rate (%)',
             xaxis=dict(
+                type='date',
                 tickformat='%Y-%m-%d',
                 tickmode='auto',
-                nticks=10
+                nticks=10,
+                showgrid=True
             ),
+            yaxis=dict(showgrid=True),
+            showlegend=False,
             hovermode='x unified'
         )
         
@@ -82,20 +86,24 @@ def create_kpi_trends(df, site_name):
             x=daily_metrics['timestamp'],
             y=daily_metrics['flow_rate'],
             mode='lines+markers',
-            name='Daily Values',
-            line=dict(width=2),
-            marker=dict(size=6)
+            name='Flow Rate',
+            line=dict(color='green', width=2),
+            marker=dict(color='green', size=8)
         ))
         
         fig_flow.update_layout(
-            title='Flow Rate Trend',
+            title='Daily Average Flow Rate',
             xaxis_title='Date',
             yaxis_title='Flow Rate (m³/h)',
             xaxis=dict(
+                type='date',
                 tickformat='%Y-%m-%d',
                 tickmode='auto',
-                nticks=10
+                nticks=10,
+                showgrid=True
             ),
+            yaxis=dict(showgrid=True),
+            showlegend=False,
             hovermode='x unified'
         )
         
@@ -107,12 +115,12 @@ def create_performance_gauge(value, title):
     """Create gauge chart for performance metrics"""
     try:
         fig = go.Figure(go.Indicator(
-            mode = "gauge+number",
-            value = value,
-            title = {'text': title},
-            gauge = {
+            mode="gauge+number",
+            value=value,
+            title={'text': title},
+            gauge={
                 'axis': {'range': [0, 100]},
-                'bar': {'color': "darkblue"},
+                'bar': {'color': "blue"},
                 'steps': [
                     {'range': [0, 50], 'color': "lightgray"},
                     {'range': [50, 75], 'color': "gray"},
