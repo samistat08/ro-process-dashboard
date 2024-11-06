@@ -14,68 +14,11 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
         historical_df = pd.DataFrame()
         real_time_df = pd.DataFrame()
 
-        # Load historical data from the new CSV
+        # Load historical data
         try:
-            historical_df = pd.read_csv('data_to_use.csv')
-            logger.info("Debug - CSV columns: %s", historical_df.columns.tolist())
+            historical_df = pd.read_csv('data/sample_ro_data.csv')
+            historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
             
-            # Handle missing values before processing
-            historical_df = historical_df.fillna({
-                'pres-ID-001_feed': historical_df['pres-ID-001_feed'].median(),
-                'flow-ID-001_feed': historical_df['flow-ID-001_feed'].median(),
-                'flow-ID-001_product': historical_df['flow-ID-001_product'].median(),
-                'elect-ID-001_feed': historical_df['elect-ID-001_feed'].median()
-            })
-            
-            # Handle datetime parsing with error handling
-            try:
-                # Clean datetime values before parsing
-                historical_df['datetime'] = historical_df['datetime'].replace('#VALUE!', pd.NaT)
-                historical_df['timestamp'] = pd.to_datetime(
-                    historical_df['datetime'],
-                    format='%d/%m/%Y %H:%M:%S',  # Specify the correct date format
-                    dayfirst=True  # Ensure day is read before month
-                )
-            except ValueError as e:
-                logger.error(f"Error parsing datetime: {str(e)}")
-                logger.info("Sample datetime values:")
-                logger.info(historical_df['datetime'].head())
-                raise ValueError(f"Error parsing datetime values: {str(e)}")
-            
-            # Convert the specific columns from the CSV to match our expected format
-            historical_df = historical_df.rename(columns={
-                'pres-ID-001_feed': 'pressure',
-                'flow-ID-001_feed': 'flow_rate',
-                'location': 'site_name',
-                'elect-ID-001_feed': 'conductivity'
-            })
-            
-            # Calculate recovery rate from available metrics
-            historical_df['recovery_rate'] = (
-                historical_df['flow-ID-001_product'] / historical_df['flow-ID-001_feed']
-            ) * 100
-            
-            # Add missing columns for compatibility with real-time data
-            if 'site_id' not in historical_df.columns:
-                historical_df['site_id'] = historical_df.groupby('site_name').ngroup() + 1
-            
-            if 'latitude' not in historical_df.columns:
-                # Update site coordinates mapping based on the new data
-                site_coords = {
-                    'amsterdam': (52.3676, 4.9041),
-                    'singapore': (1.3521, 103.8198),
-                    'dubai': (25.2048, 55.2708),
-                    'california': (34.0522, -118.2437)
-                }
-                historical_df['latitude'] = historical_df['site_name'].map(lambda x: site_coords.get(x.lower(), (0, 0))[0])
-                historical_df['longitude'] = historical_df['site_name'].map(lambda x: site_coords.get(x.lower(), (0, 0))[1])
-            
-            if 'temperature' not in historical_df.columns:
-                historical_df['temperature'] = np.nan
-
-            # Remove any rows with invalid timestamps
-            historical_df = historical_df.dropna(subset=['timestamp'])
-
         except FileNotFoundError:
             logger.warning("Historical data file not found")
             raise
@@ -84,7 +27,6 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
         if use_real_time:
             try:
                 real_time_df = pd.read_csv('data/real_time_data.csv')
-                logger.info("Debug - Real-time CSV columns: %s", real_time_df.columns.tolist())
                 real_time_df['timestamp'] = pd.to_datetime(real_time_df['timestamp'])
             except FileNotFoundError:
                 logger.warning("Real-time data file not found")
