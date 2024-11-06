@@ -1,7 +1,5 @@
-import plotly.express as px
 import plotly.graph_objects as go
 import folium
-from folium import plugins
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -36,29 +34,23 @@ def create_world_map(sites_data):
         raise Exception(f"Error creating world map: {str(e)}")
 
 def create_kpi_trends(df, site_name):
+    """Create KPI trend visualizations with daily aggregation"""
     try:
-        # Debug logging
-        logger.info(f"Total records before filtering: {len(df)}")
-        
         site_df = df[df['site_name'] == site_name].copy()
-        logger.info(f"Records for site {site_name}: {len(site_df)}")
+        logger.info(f"Processing trends for site {site_name} with {len(site_df)} records")
         
         # Ensure timestamp is datetime
         site_df['timestamp'] = pd.to_datetime(site_df['timestamp'])
         
-        # Print date range
-        logger.info(f"Date range: {site_df['timestamp'].min()} to {site_df['timestamp'].max()}")
-        
-        # Daily aggregation without any additional filtering
-        daily_metrics = site_df.groupby(site_df['timestamp'].dt.date).agg({
+        # Daily aggregation using pd.Grouper
+        daily_metrics = site_df.groupby(pd.Grouper(key='timestamp', freq='D')).agg({
             'recovery_rate': 'mean',
             'flow_rate': 'mean'
         }).reset_index()
         
-        logger.info(f"Daily aggregated points: {len(daily_metrics)}")
-        
-        # Convert date back to datetime for proper plotting
-        daily_metrics['timestamp'] = pd.to_datetime(daily_metrics['timestamp'])
+        # Remove any NaN values
+        daily_metrics = daily_metrics.dropna()
+        logger.info(f"Generated {len(daily_metrics)} daily aggregated points")
         
         # Create Recovery Rate trend plot
         fig_recovery = go.Figure()
@@ -68,7 +60,7 @@ def create_kpi_trends(df, site_name):
             mode='lines+markers',
             name='Recovery Rate',
             line=dict(color='blue', width=2),
-            marker=dict(color='blue', size=8)
+            marker=dict(size=8, color='blue')
         ))
         
         fig_recovery.update_layout(
@@ -82,7 +74,7 @@ def create_kpi_trends(df, site_name):
                 showgrid=True
             ),
             yaxis=dict(showgrid=True),
-            showlegend=False,
+            showlegend=True,
             hovermode='x unified'
         )
         
@@ -94,7 +86,7 @@ def create_kpi_trends(df, site_name):
             mode='lines+markers',
             name='Flow Rate',
             line=dict(color='green', width=2),
-            marker=dict(color='green', size=8)
+            marker=dict(size=8, color='green')
         ))
         
         fig_flow.update_layout(
@@ -108,7 +100,7 @@ def create_kpi_trends(df, site_name):
                 showgrid=True
             ),
             yaxis=dict(showgrid=True),
-            showlegend=False,
+            showlegend=True,
             hovermode='x unified'
         )
         
@@ -116,7 +108,7 @@ def create_kpi_trends(df, site_name):
         
     except Exception as e:
         logger.error(f"Error in create_kpi_trends: {str(e)}")
-        raise Exception(f"Error creating KPI trends: {str(e)}")
+        raise
 
 def create_performance_gauge(value, title):
     """Create gauge chart for performance metrics"""

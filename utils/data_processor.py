@@ -14,91 +14,87 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
         historical_df = pd.DataFrame()
         real_time_df = pd.DataFrame()
 
+        # Load historical data from sensor_data_output CSV
+        try:
+            historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv')
+            logger.info("Debug - CSV columns: %s", historical_df.columns.tolist())
+            
+            # Convert the specific columns from the CSV to match our expected format
+            historical_df = historical_df.rename(columns={
+                'pres-ID-001_feed': 'pressure',
+                'flow-ID_001_feed': 'flow_rate',
+                'location': 'site_name'
+            })
+            
+            # Convert Date and Time columns to timestamp
+            historical_df['timestamp'] = pd.to_datetime(
+                historical_df['Date'] + ' ' + historical_df['Time'],
+                format='%d/%m/%Y %H:%M:%S',
+                dayfirst=True
+            )
+            
+            # Calculate recovery rate from available metrics
+            historical_df['recovery_rate'] = (
+                historical_df['flow-ID-001_product'] / historical_df['flow-ID_001_feed']
+            ) * 100
+            
+            # Add missing columns for compatibility with real-time data
+            if 'site_id' not in historical_df.columns:
+                historical_df['site_id'] = historical_df.groupby('site_name').ngroup() + 1
+            
+            if 'latitude' not in historical_df.columns:
+                # Add default coordinates based on site name
+                site_coords = {
+                    'Singapore': (1.3521, 103.8198),
+                    'Dubai': (25.2048, 55.2708),
+                    'California': (34.0522, -118.2437)
+                }
+                historical_df['latitude'] = historical_df['site_name'].map(lambda x: next((lat for site, (lat, _) in site_coords.items() if site in x), 0))
+                historical_df['longitude'] = historical_df['site_name'].map(lambda x: next((lon for site, (_, lon) in site_coords.items() if site in x), 0))
+            
+            if 'conductivity' not in historical_df.columns:
+                historical_df['conductivity'] = np.nan
+            
+            if 'temperature' not in historical_df.columns:
+                historical_df['temperature'] = np.nan
+
+        except FileNotFoundError:
+            logger.warning("Historical data file not found")
+
         # Load real-time data if enabled
         if use_real_time:
             try:
                 real_time_df = pd.read_csv('data/real_time_data.csv')
                 logger.info("Debug - Real-time CSV columns: %s", real_time_df.columns.tolist())
-                if 'timestamp' in real_time_df.columns:
-                    real_time_df['timestamp'] = pd.to_datetime(real_time_df['timestamp'])
-                    logger.info("Successfully loaded real-time data with timestamp")
+                real_time_df['timestamp'] = pd.to_datetime(real_time_df['timestamp'])
             except FileNotFoundError:
                 logger.warning("Real-time data file not found")
-                pass
 
-        # Load historical data
-        try:
-            historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv')
-            logger.info("Debug - CSV columns: %s", historical_df.columns.tolist())
-
-            try:
-                # Handle date and time columns
-                if 'Date' in historical_df.columns and 'Time' in historical_df.columns:
-                    # Convert using uppercase column names with explicit format and dayfirst
-                    historical_df['timestamp'] = pd.to_datetime(
-                        historical_df['Date'] + ' ' + historical_df['Time'],
-                        format='%d/%m/%Y %H:%M:%S',  # Specify British date format
-                        dayfirst=True  # Handle DD/MM/YYYY format
-                    )
-                    historical_df = historical_df.drop(['Date', 'Time'], axis=1)
-                    logger.info("Processed uppercase Date/Time columns")
-                elif 'date' in historical_df.columns and 'time' in historical_df.columns:
-                    # Convert using lowercase column names with explicit format and dayfirst
-                    historical_df['timestamp'] = pd.to_datetime(
-                        historical_df['date'] + ' ' + historical_df['time'],
-                        format='%d/%m/%Y %H:%M:%S',  # Specify British date format
-                        dayfirst=True  # Handle DD/MM/YYYY format
-                    )
-                    historical_df = historical_df.drop(['date', 'time'], axis=1)
-                    logger.info("Processed lowercase date/time columns")
-                elif 'timestamp' in historical_df.columns:
-                    historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
-                    logger.info("Processed existing timestamp column")
-                else:
-                    logger.error("Debug - Available columns: %s", historical_df.columns.tolist())
-                    raise ValueError("No valid timestamp columns found in historical data")
-            except ValueError as e:
-                logger.error(f"Error parsing dates: {str(e)}")
-                logger.info("Sample date formats in data:")
-                if 'Date' in historical_df.columns:
-                    logger.info("Date samples: %s", historical_df['Date'].head())
-                if 'Time' in historical_df.columns:
-                    logger.info("Time samples: %s", historical_df['Time'].head())
-                raise
-                
-        except FileNotFoundError:
-            logger.error("Historical data file not found")
-            raise ValueError("Historical data file not found")
-
-        # Combine real-time and historical data if both exist
+        # Combine historical and real-time data if both exist
         if not historical_df.empty and not real_time_df.empty and use_real_time:
             logger.info("Combining historical and real-time data")
             df = pd.concat([historical_df, real_time_df], ignore_index=True)
         else:
             df = historical_df if not historical_df.empty else real_time_df
 
-        # Remove duplicates and sort
-        df = df.drop_duplicates(subset=['timestamp', 'site_id'])
-        df = df.sort_values('timestamp')
-        
-        # Apply time filtering if dates are provided
+        # Apply date filtering if dates are provided
         if start_date:
-            start_date = pd.to_datetime(start_date)
-            df = df[df['timestamp'] >= start_date]
+            df = df[df['timestamp'] >= pd.to_datetime(start_date)]
             logger.info(f"Filtered data from {start_date}")
         if end_date:
-            end_date = pd.to_datetime(end_date)
-            df = df[df['timestamp'] <= end_date]
+            df = df[df['timestamp'] <= pd.to_datetime(end_date)]
             logger.info(f"Filtered data to {end_date}")
-            
-        if df.empty:
-            raise ValueError("No data available for the specified time range")
-            
+
+        # Remove duplicates and sort by timestamp
+        df = df.drop_duplicates(subset=['timestamp', 'site_name'])
+        df = df.sort_values('timestamp')
+
         logger.info(f"Successfully loaded data with {len(df)} records")
         return df
+
     except Exception as e:
         logger.error(f"Error loading data: {str(e)}")
-        raise Exception(f"Error loading data: {str(e)}")
+        raise
 
 def process_site_data(df):
     """Process and aggregate site-level data"""
