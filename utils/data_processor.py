@@ -31,27 +31,40 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
             historical_df = pd.read_csv('sensor_data_output - sensor_data_output.csv')
             logger.info("Debug - CSV columns: %s", historical_df.columns.tolist())
 
-            # Handle date and time columns
-            if 'Date' in historical_df.columns and 'Time' in historical_df.columns:
-                # Convert using uppercase column names
-                historical_df['timestamp'] = pd.to_datetime(
-                    historical_df['Date'] + ' ' + historical_df['Time']
-                )
-                historical_df = historical_df.drop(['Date', 'Time'], axis=1)
-                logger.info("Processed uppercase Date/Time columns")
-            elif 'date' in historical_df.columns and 'time' in historical_df.columns:
-                # Convert using lowercase column names
-                historical_df['timestamp'] = pd.to_datetime(
-                    historical_df['date'] + ' ' + historical_df['time']
-                )
-                historical_df = historical_df.drop(['date', 'time'], axis=1)
-                logger.info("Processed lowercase date/time columns")
-            elif 'timestamp' in historical_df.columns:
-                historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
-                logger.info("Processed existing timestamp column")
-            else:
-                logger.error("Debug - Available columns: %s", historical_df.columns.tolist())
-                raise ValueError("No valid timestamp columns found in historical data")
+            try:
+                # Handle date and time columns
+                if 'Date' in historical_df.columns and 'Time' in historical_df.columns:
+                    # Convert using uppercase column names with explicit format and dayfirst
+                    historical_df['timestamp'] = pd.to_datetime(
+                        historical_df['Date'] + ' ' + historical_df['Time'],
+                        format='%d/%m/%Y %H:%M:%S',  # Specify British date format
+                        dayfirst=True  # Handle DD/MM/YYYY format
+                    )
+                    historical_df = historical_df.drop(['Date', 'Time'], axis=1)
+                    logger.info("Processed uppercase Date/Time columns")
+                elif 'date' in historical_df.columns and 'time' in historical_df.columns:
+                    # Convert using lowercase column names with explicit format and dayfirst
+                    historical_df['timestamp'] = pd.to_datetime(
+                        historical_df['date'] + ' ' + historical_df['time'],
+                        format='%d/%m/%Y %H:%M:%S',  # Specify British date format
+                        dayfirst=True  # Handle DD/MM/YYYY format
+                    )
+                    historical_df = historical_df.drop(['date', 'time'], axis=1)
+                    logger.info("Processed lowercase date/time columns")
+                elif 'timestamp' in historical_df.columns:
+                    historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
+                    logger.info("Processed existing timestamp column")
+                else:
+                    logger.error("Debug - Available columns: %s", historical_df.columns.tolist())
+                    raise ValueError("No valid timestamp columns found in historical data")
+            except ValueError as e:
+                logger.error(f"Error parsing dates: {str(e)}")
+                logger.info("Sample date formats in data:")
+                if 'Date' in historical_df.columns:
+                    logger.info("Date samples: %s", historical_df['Date'].head())
+                if 'Time' in historical_df.columns:
+                    logger.info("Time samples: %s", historical_df['Time'].head())
+                raise
                 
         except FileNotFoundError:
             logger.error("Historical data file not found")
