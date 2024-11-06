@@ -1,10 +1,18 @@
 import pandas as pd
 import numpy as np
+from datetime import datetime, timedelta
 
-def load_data():
+def load_data(use_real_time=True):
     """Load and validate RO process data"""
     try:
-        df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
+        if use_real_time:
+            try:
+                df = pd.read_csv('data/real_time_data.csv', parse_dates=['timestamp'])
+            except FileNotFoundError:
+                # Fall back to sample data if real-time data is not available
+                df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
+        else:
+            df = pd.read_csv('data/sample_ro_data.csv', parse_dates=['timestamp'])
         return df
     except Exception as e:
         raise Exception(f"Error loading data: {str(e)}")
@@ -30,7 +38,8 @@ def calculate_kpis(df, site_name):
         'avg_recovery': site_df['recovery_rate'].mean(),
         'avg_pressure': site_df['pressure'].mean(),
         'avg_flow': site_df['flow_rate'].mean(),
-        'efficiency_score': calculate_efficiency_score(site_df)
+        'efficiency_score': calculate_efficiency_score(site_df),
+        'last_updated': site_df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')
     }
     
     return kpis

@@ -10,4 +10,5 @@ dependencies = [
     "plotly-express>=0.4.1",
     "streamlit-folium>=0.23.1",
     "streamlit>=1.39.0",
+    "numpy",
 ]
