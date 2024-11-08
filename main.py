@@ -126,15 +126,20 @@ def main():
             # Last updated timestamp
             st.text(f"Last Updated: {df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')}")
             
-            # Site selector
+            # Site selector and navigation buttons
             selected_site = st.selectbox(
                 "Select Site for Details",
                 options=sites_data['site_name'].unique()
             )
             
-            if st.button("View Site Details"):
-                st.session_state['selected_site'] = selected_site
-                st.switch_page("pages/site_details.py")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("View Site Details"):
+                    st.session_state['selected_site'] = selected_site
+                    st.switch_page("pages/site_details.py")
+            with col2:
+                if st.button("Compare Sites"):
+                    st.switch_page("pages/comparison_analysis.py")
 
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
