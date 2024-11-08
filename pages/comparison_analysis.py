@@ -29,12 +29,17 @@ def create_comparison_chart(df, sites, metric):
     return fig
 
 def create_radar_chart(df, sites, metrics):
-    """Create a radar chart comparing multiple metrics across sites"""
+    '''Create a radar chart comparing multiple metrics across sites'''
     fig = go.Figure()
+    
+    # Calculate the mean values for normalization
+    max_values = {metric: df[metric].max() for metric in metrics}
     
     for site in sites:
         site_data = df[df['site_name'] == site].mean()
-        values = [site_data[metric] for metric in metrics]
+        # Normalize the values to 0-100 scale for better comparison
+        values = [(site_data[metric] / max_values[metric]) * 100 if max_values[metric] != 0 else 0 
+                 for metric in metrics]
         
         fig.add_trace(go.Scatterpolar(
             r=values,
@@ -47,10 +52,10 @@ def create_radar_chart(df, sites, metrics):
         polar=dict(
             radialaxis=dict(
                 visible=True,
-                range=[0, max([df[metric].max() for metric in metrics])]
+                range=[0, 100]  # Set fixed range for normalized values
             )),
         showlegend=True,
-        title='Multi-metric Site Comparison',
+        title='Multi-metric Site Comparison (Normalized %)',
         height=500
     )
     return fig
@@ -137,7 +142,7 @@ def render_comparison_analysis():
             st.subheader("Trend Comparison")
             selected_metric = st.selectbox(
                 "Select Metric for Trend Comparison",
-                options=metrics,
+                options=[m for m in metrics if df[m].dtype in ['int64', 'float64']],
                 format_func=lambda x: x.replace("_", " ").title()
             )
             trend_fig = create_comparison_chart(df, selected_sites, selected_metric)
@@ -147,8 +152,8 @@ def render_comparison_analysis():
             st.subheader("Multi-metric Analysis")
             selected_metrics = st.multiselect(
                 "Select Metrics for Radar Chart",
-                options=metrics,
-                default=metrics[:4],
+                options=[m for m in metrics if df[m].dtype in ['int64', 'float64']],  # Only numeric metrics
+                default=[m for m in metrics if df[m].dtype in ['int64', 'float64']][:4],
                 format_func=lambda x: x.replace("_", " ").title()
             )
             if selected_metrics:
@@ -161,7 +166,7 @@ def render_comparison_analysis():
             st.subheader("Average Values Comparison")
             selected_metric_avg = st.selectbox(
                 "Select Metric for Average Comparison",
-                options=metrics,
+                options=[m for m in metrics if df[m].dtype in ['int64', 'float64']],
                 format_func=lambda x: x.replace("_", " ").title(),
                 key="avg_metric"
             )
