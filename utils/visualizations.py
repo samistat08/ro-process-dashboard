@@ -83,7 +83,8 @@ def create_kpi_trends(df, site_name):
             yaxis=dict(showgrid=True),
             showlegend=True,
             hovermode='x unified',
-            height=400
+            height=350,  # Reduced height for better fit
+            margin=dict(t=30, b=30)  # Adjust margins
         )
         
         # Create combined Flow Rate trend plot
@@ -135,7 +136,8 @@ def create_kpi_trends(df, site_name):
             yaxis=dict(showgrid=True),
             showlegend=True,
             hovermode='x unified',
-            height=400,
+            height=350,  # Reduced height for better fit
+            margin=dict(t=30, b=30),  # Adjust margins
             legend=dict(
                 yanchor="top",
                 y=0.99,

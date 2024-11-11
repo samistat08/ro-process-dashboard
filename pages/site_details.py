@@ -3,7 +3,6 @@ import pandas as pd
 from utils.data_processor import load_data, calculate_kpis
 from utils.visualizations import create_kpi_trends, create_performance_gauge
 from utils.predictive_maintenance import MaintenancePredictor
-# from utils.export_utils import export_data_to_csv, export_plot_to_html, get_download_link
 
 def render_maintenance_alerts(site_df):
     """Render maintenance alerts section"""
@@ -34,19 +33,6 @@ def render_maintenance_alerts(site_df):
                 st.write(f"Recommendation: {alert['recommendation']}")
     else:
         st.success("No active alerts - System operating normally")
-    
-    # Export maintenance report
-    # if st.button("Export Maintenance Report"):
-    #     report_data = pd.DataFrame({
-    #         'Status': [maintenance_info['status']],
-    #         'Next Maintenance': [maintenance_info['next_maintenance'].strftime("%Y-%m-%d")],
-    #         'Alert Count': [len(maintenance_info['alerts'])]
-    #     })
-    #     href, filename = export_data_to_csv(report_data, "maintenance_report")
-    #     st.markdown(
-    #         get_download_link(href, filename, "📥 Download Maintenance Report (CSV)"),
-    #         unsafe_allow_html=True
-    #     )
 
 def render_site_details():
     st.title("Site Details Analysis")
@@ -76,15 +62,6 @@ def render_site_details():
     with col3:
         st.metric("Average Flow", f"{kpis['avg_flow']:.1f} m³/h")
     
-    # Export KPI data
-    # if st.button("Export KPI Data"):
-    #     kpi_df = pd.DataFrame([kpis])
-    #     href, filename = export_data_to_csv(kpi_df, f"{site_name}_kpi_data")
-    #     st.markdown(
-    #         get_download_link(href, filename, "📥 Download KPI Data (CSV)"),
-    #         unsafe_allow_html=True
-    #     )
-    
     # Maintenance Alerts Section
     render_maintenance_alerts(site_df)
     
@@ -96,37 +73,24 @@ def render_site_details():
     )
     st.plotly_chart(gauge_fig, use_container_width=True)
     
-    # Export performance visualization
-    # if st.button("Export Performance Gauge"):
-    #     href, filename = export_plot_to_html(gauge_fig, f"{site_name}_performance_gauge")
-    #     st.markdown(
-    #         get_download_link(href, filename, "📥 Download Performance Gauge (HTML)"),
-    #         unsafe_allow_html=True
-    #     )
-    
-    # Trend Analysis
+    # Trend Analysis Section
     st.subheader("Trend Analysis")
     fig_recovery, fig_flow = create_kpi_trends(df, site_name)
-    
-    # Create two columns for plots
+
+    # Add spacing between sections
+    st.markdown("<div style='height: 20px'></div>", unsafe_allow_html=True)
+
+    # First row - Recovery Rate
     col1, col2 = st.columns(2)
     with col1:
         st.plotly_chart(fig_recovery, use_container_width=True)
-        # if st.button("Export Recovery Trend"):
-        #     href, filename = export_plot_to_html(fig_recovery, f"{site_name}_recovery_trend")
-        #     st.markdown(
-        #         get_download_link(href, filename, "📥 Download Recovery Trend (HTML)"),
-        #         unsafe_allow_html=True
-        #     )
-    
+
+    # Add spacing between rows
+    st.markdown("<div style='height: 20px'></div>", unsafe_allow_html=True)
+
+    # Second row - Flow Rates
     with col2:
         st.plotly_chart(fig_flow, use_container_width=True)
-        # if st.button("Export Flow Trend"):
-        #     href, filename = export_plot_to_html(fig_flow, f"{site_name}_flow_trend")
-        #     st.markdown(
-        #         get_download_link(href, filename, "📥 Download Flow Trend (HTML)"),
-        #         unsafe_allow_html=True
-        #     )
     
     # Display last update time
     st.text(f"Last Updated: {kpis['last_updated']}")
