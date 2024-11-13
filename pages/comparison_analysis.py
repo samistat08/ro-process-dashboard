@@ -133,7 +133,7 @@ try:
         df = df[df['timestamp'] >= cutoff_time]
     
     # Create tabs for different comparison views
-    tab1, tab2, tab3 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Average Comparison"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Average Comparison", "Site Comparison Report"])
     
     with tab1:
         st.subheader("Trend Comparison")
@@ -171,6 +171,21 @@ try:
         if selected_metric_avg:
             bar_fig = create_bar_comparison(df, selected_sites, selected_metric_avg)
             st.plotly_chart(bar_fig, use_container_width=True)
+    
+    with tab4:
+        st.subheader("Site Comparison Report")
+        summary_data = []
+        for site in selected_sites:
+            site_data = df[df['site_name'] == site]
+            summary = {
+                'Site': site,
+                'Average Recovery Rate': f"{site_data['recovery_rate'].mean():.2f}%",
+                'Average Pressure': f"{site_data['pressure'].mean():.2f} psi",
+                'Average Feed Flow': f"{site_data['flow-ID-001_feed'].mean():.2f} gpm"
+            }
+            summary_data.append(summary)
+        
+        st.dataframe(pd.DataFrame(summary_data), hide_index=True)
     
     # Summary statistics
     st.subheader("Summary Statistics")

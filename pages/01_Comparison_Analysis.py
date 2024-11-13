@@ -152,7 +152,7 @@ try:
         selected_metrics = st.multiselect(
             "Select Metrics for Radar Chart",
             options=metrics,
-            default=metrics[:4],
+            default=metrics[:4] + ['temperature'], # added new metric
             format_func=lambda x: x.replace("_", " ").title()
         )
         if selected_metrics:

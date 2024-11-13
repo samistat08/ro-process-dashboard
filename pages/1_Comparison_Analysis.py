@@ -185,6 +185,13 @@ try:
     
     st.dataframe(pd.DataFrame(summary_data), hide_index=True)
 
+    # Display a table with detailed data for selected sites
+    st.subheader("Site Data Table")
+    for site in selected_sites:
+        site_df = df[df['site_name'] == site]
+        st.write(f"## {site}")
+        st.dataframe(site_df)
+
 except Exception as e:
     st.error(f"An error occurred: {str(e)}")
     st.stop()

@@ -18,4 +18,5 @@ dependencies = [
     "statsmodels",
     "scikit-learn",
     "reportlab",
+    "dash-bootstrap-components>=1.6.0",
 ]
