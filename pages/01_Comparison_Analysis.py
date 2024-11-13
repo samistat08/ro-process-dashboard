@@ -86,6 +86,7 @@ def create_bar_comparison(df, sites, metric):
     )
     return fig
 
+# Page configuration
 st.set_page_config(page_title="Site Comparison Analysis", page_icon="📊", layout="wide")
 
 try:
@@ -115,7 +116,7 @@ try:
     
     # Available metrics for comparison (only numeric columns)
     numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
-    metrics = [col for col in numeric_columns if col not in ['site_id', 'Latitude', 'Longitude']]
+    metrics = [col for col in numeric_columns if col not in ['site_id', 'latitude', 'longitude']]
     
     # Time range selection
     st.sidebar.subheader("Time Range")

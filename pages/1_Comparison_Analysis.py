@@ -86,11 +86,9 @@ def create_bar_comparison(df, sites, metric):
     )
     return fig
 
-st.set_page_config(page_title="Site Comparison Analysis", page_icon="📊", layout="wide")
+st.title("📊 Site Comparison Analysis")
 
 try:
-    st.title("📊 Site Comparison Analysis")
-    
     # Load data
     df = load_data(use_real_time=True)
     

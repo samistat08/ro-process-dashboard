@@ -10,41 +10,28 @@ logger = logging.getLogger(__name__)
 def load_data(use_real_time=True, start_date=None, end_date=None):
     """Load and validate RO process data"""
     try:
-        # Initialize empty DataFrames
-        historical_df = pd.DataFrame()
-        real_time_df = pd.DataFrame()
-
-        # Load historical data
-        try:
-            historical_df = pd.read_csv('data/sample_ro_data.csv')
-            historical_df['timestamp'] = pd.to_datetime(historical_df['timestamp'])
-            
-            # Convert old flow_rate column to new format if it exists
-            if 'flow_rate' in historical_df.columns:
-                historical_df['flow-ID-001_feed'] = historical_df['flow_rate']
-                historical_df['flow-ID-001_product'] = historical_df['flow_rate'] * 0.75
-                historical_df['flow-ID-001_waste'] = historical_df['flow_rate'] * 0.25
-                historical_df.drop('flow_rate', axis=1, inplace=True)
-            
-        except FileNotFoundError:
-            logger.warning("Historical data file not found")
-            raise
-
-        # Load real-time data if enabled
-        if use_real_time:
-            try:
-                real_time_df = pd.read_csv('data/real_time_data.csv')
-                real_time_df['timestamp'] = pd.to_datetime(real_time_df['timestamp'])
-            except FileNotFoundError:
-                logger.warning("Real-time data file not found")
-
-        # Combine historical and real-time data if both exist
-        if not historical_df.empty and not real_time_df.empty and use_real_time:
-            logger.info("Combining historical and real-time data")
-            df = pd.concat([historical_df, real_time_df], ignore_index=True)
-        else:
-            df = historical_df if not historical_df.empty else real_time_df
-
+        # Load data from RO_system_data.csv
+        df = pd.read_csv('RO_system_data.csv')
+        df['timestamp'] = pd.to_datetime(df['Date'])
+        
+        # Rename columns to match the expected format
+        df = df.rename(columns={
+            'Site': 'site_name',
+            'Pressure (psi)': 'pressure',
+            'Flow Rate (gpm)': 'flow-ID-001_feed',
+            'Salt Rejection (%)': 'recovery_rate',
+            'Temperature (C)': 'temperature',
+            'pH Level': 'pH'
+        })
+        
+        # Calculate product and waste flows based on feed flow and recovery rate
+        df['flow-ID-001_product'] = df['flow-ID-001_feed'] * (df['recovery_rate'] / 100)
+        df['flow-ID-001_waste'] = df['flow-ID-001_feed'] - df['flow-ID-001_product']
+        
+        # Add site_id based on site_name
+        site_mapping = {name: idx for idx, name in enumerate(df['site_name'].unique(), 1)}
+        df['site_id'] = df['site_name'].map(site_mapping)
+        
         # Apply date filtering if dates are provided
         if start_date:
             df = df[df['timestamp'] >= pd.to_datetime(start_date)]
@@ -66,13 +53,13 @@ def load_data(use_real_time=True, start_date=None, end_date=None):
 
 def process_site_data(df):
     """Process and aggregate site-level data"""
-    site_data = df.groupby(['site_id', 'site_name', 'latitude', 'longitude']).agg({
+    site_data = df.groupby(['site_id', 'site_name', 'Latitude', 'Longitude']).agg({
         'pressure': 'mean',
         'flow-ID-001_feed': 'mean',
         'flow-ID-001_product': 'mean',
         'flow-ID-001_waste': 'mean',
-        'conductivity': 'mean',
         'temperature': 'mean',
+        'pH': 'mean',
         'recovery_rate': 'mean',
         'timestamp': 'max'
     }).reset_index()
@@ -99,8 +86,11 @@ def calculate_efficiency_score(site_df):
     recovery_weight = 0.6
     pressure_weight = 0.4
     
-    norm_recovery = (site_df['recovery_rate'] - 70) / 30  # Normalize to 0-1 scale
-    norm_pressure = 1 - (site_df['pressure'] - 60) / 20
+    # Normalize recovery rate (95-100% is ideal)
+    norm_recovery = (site_df['recovery_rate'] - 95) / 5
+    
+    # Normalize pressure (490-510 psi is ideal)
+    norm_pressure = 1 - abs(site_df['pressure'] - 500) / 20
     
     score = (recovery_weight * norm_recovery + pressure_weight * norm_pressure).mean()
     return min(max(score * 100, 0), 100)  # Clamp to 0-100 range
