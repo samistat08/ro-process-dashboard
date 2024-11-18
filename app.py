@@ -1,15 +1,15 @@
 import dash
-from dash import html, dcc, callback, Input, Output
+from dash import html, dcc, Input, Output, State
+import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from datetime import datetime
-import dash_bootstrap_components as dbc
 
-# Initialize the Dash app with bootstrap theme
-app = dash.Dash(__name__, suppress_callback_exceptions=True, external_stylesheets=[dbc.themes.BOOTSTRAP])
+# Initialize the app
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-# Load and process data
+# Load data
 def load_data():
     """Load data from CSV file"""
     try:
@@ -20,11 +20,13 @@ def load_data():
         print(f"Error loading data: {str(e)}")
         return pd.DataFrame()
 
-# App layout with bootstrap components
+df = load_data()
+
+# Create the layout
 app.layout = dbc.Container([
     # Header
     dbc.Row([
-        dbc.Col(html.H1('RO Process Monitoring - Site Comparison', 
+        dbc.Col(html.H1("RO Process Monitoring - Site Comparison", 
                 className='text-center mb-4 mt-4'))
     ]),
     
@@ -120,7 +122,6 @@ def update_trend_graphs(selected_sites, selected_metrics, start_date, end_date):
         return html.Div("Please select at least one site and metric")
     
     try:
-        df = load_data()
         if df.empty:
             return html.Div("Error loading data. Please check the data source.")
             
@@ -139,7 +140,6 @@ def update_trend_graphs(selected_sites, selected_metrics, start_date, end_date):
             for site in selected_sites:
                 site_data = df_filtered[df_filtered['Site'] == site]
                 
-                # Add actual values
                 fig.add_trace(go.Scatter(
                     x=site_data['Date'],
                     y=site_data[metric],
@@ -147,7 +147,6 @@ def update_trend_graphs(selected_sites, selected_metrics, start_date, end_date):
                     mode='lines+markers'
                 ))
                 
-                # Add trend line
                 if len(site_data) > 1:
                     x_numeric = np.arange(len(site_data))
                     y_array = site_data[metric].astype(float).to_numpy()
@@ -188,7 +187,6 @@ def update_stats_graphs(selected_sites, selected_metrics, start_date, end_date):
         return html.Div("Please select at least one site and metric")
     
     try:
-        df = load_data()
         if df.empty:
             return html.Div("Error loading data. Please check the data source.")
             
@@ -266,7 +264,6 @@ def update_correlation_graphs(selected_sites, selected_metrics, start_date, end_
         return html.Div("Please select at least two metrics for correlation analysis")
     
     try:
-        df = load_data()
         if df.empty:
             return html.Div("Error loading data. Please check the data source.")
             
@@ -284,7 +281,6 @@ def update_correlation_graphs(selected_sites, selected_metrics, start_date, end_
         for site in selected_sites:
             site_data = df_filtered[df_filtered['Site'] == site]
             
-            # Prepare data for correlation
             metric_arrays = [site_data[metric].astype(float).to_numpy() for metric in selected_metrics]
             metric_arrays = np.array(metric_arrays)
             corr_matrix = np.corrcoef(metric_arrays)
@@ -310,4 +306,4 @@ def update_correlation_graphs(selected_sites, selected_metrics, start_date, end_
         return html.Div(f"Error generating correlation graphs: {str(e)}")
 
 if __name__ == '__main__':
-    app.run_server(debug=True, host='0.0.0.0', port=5001)
+    app.run_server(host='0.0.0.0', port=5000)

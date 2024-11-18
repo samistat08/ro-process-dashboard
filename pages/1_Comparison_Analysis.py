@@ -131,7 +131,7 @@ try:
         df = df[df['timestamp'] >= cutoff_time]
     
     # Create tabs for different comparison views
-    tab1, tab2, tab3 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Average Comparison"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Average Comparison", "Site Data Table"])
     
     with tab1:
         st.subheader("Trend Comparison")
@@ -170,6 +170,14 @@ try:
             bar_fig = create_bar_comparison(df, selected_sites, selected_metric_avg)
             st.plotly_chart(bar_fig, use_container_width=True)
     
+    with tab4:
+        st.subheader("Site Data Table")
+        # Display a table with detailed data for selected sites
+        for site in selected_sites:
+            site_df = df[df['site_name'] == site]
+            st.write(f"## {site}")
+            st.dataframe(site_df)
+    
     # Summary statistics
     st.subheader("Summary Statistics")
     summary_data = []
@@ -184,13 +192,6 @@ try:
         summary_data.append(summary)
     
     st.dataframe(pd.DataFrame(summary_data), hide_index=True)
-
-    # Display a table with detailed data for selected sites
-    st.subheader("Site Data Table")
-    for site in selected_sites:
-        site_df = df[df['site_name'] == site]
-        st.write(f"## {site}")
-        st.dataframe(site_df)
 
 except Exception as e:
     st.error(f"An error occurred: {str(e)}")

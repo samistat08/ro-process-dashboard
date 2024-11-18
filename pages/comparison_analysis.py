@@ -133,7 +133,7 @@ try:
         df = df[df['timestamp'] >= cutoff_time]
     
     # Create tabs for different comparison views
-    tab1, tab2, tab3, tab4 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Average Comparison", "Site Comparison Report"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Average Comparison", "Site Comparison Report", "Raw Data"])
     
     with tab1:
         st.subheader("Trend Comparison")
@@ -186,6 +186,10 @@ try:
             summary_data.append(summary)
         
         st.dataframe(pd.DataFrame(summary_data), hide_index=True)
+    
+    with tab5:
+        st.subheader("Raw Data")
+        st.dataframe(df)
     
     # Summary statistics
     st.subheader("Summary Statistics")

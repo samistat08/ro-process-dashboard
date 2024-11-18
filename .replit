@@ -13,30 +13,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Streamlit Dashboard"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Data Simulator"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "RO Dashboard"
-
-[[workflows.workflow]]
-name = "Streamlit Dashboard"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "streamlit run main.py --server.port 5000"
-waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Data Simulator"
@@ -64,8 +45,8 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python dashboard.py"
-waitForPort = 5001
+args = "python app.py"
+waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "streamlit run main.py --server.port 5000"]
