@@ -9,21 +9,20 @@ from datetime import datetime
 # Initialize the app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+# Define threshold values for KPI health indicators
+THRESHOLDS = {
+    'pressure': {'low': 480, 'high': 520},
+    'flow_rate': {'low': 40, 'high': 60},
+    'salt_rejection': {'low': 97, 'high': 99},
+    'temperature': {'low': 20, 'high': 30},
+    'ph_level': {'low': 6.5, 'high': 7.5}
+}
+
 def load_data():
     """Load data from CSV file"""
     try:
         df = pd.read_csv('RO_system_data.csv')
         df['Date'] = pd.to_datetime(df['Date'])
-        
-        # Ensure consistent column names
-        column_mapping = {
-            'Pressure (psi)': 'pressure',
-            'Flow Rate (gpm)': 'flow_rate',
-            'Salt Rejection (%)': 'salt_rejection',
-            'Temperature (C)': 'temperature',
-            'pH Level': 'ph_level'
-        }
-        df = df.rename(columns=column_mapping)
         return df
     except Exception as e:
         print(f"Error loading data: {str(e)}")
@@ -34,11 +33,12 @@ def create_map(df):
     try:
         fig = go.Figure()
         
-        for _, site in df.groupby(['Site', 'Latitude', 'Longitude']).first().iterrows():
+        for site in df['Site'].unique():
+            site_data = df[df['Site'] == site].iloc[-1]
             fig.add_trace(go.Scattergeo(
-                lon=[site['Longitude']],
-                lat=[site['Latitude']],
-                text=[f"<b>{site['Site']}</b>"],
+                lon=[site_data['Longitude']],
+                lat=[site_data['Latitude']],
+                text=[f"<b>{site}</b>"],
                 mode='markers',
                 marker=dict(
                     size=15,
@@ -47,7 +47,7 @@ def create_map(df):
                     symbol='circle'
                 ),
                 hoverinfo='text',
-                name=site['Site']
+                name=site
             ))
         
         fig.update_layout(
@@ -71,6 +71,45 @@ def create_map(df):
         print(f"Error creating map: {str(e)}")
         return go.Figure()
 
+def create_site_kpi_cards(df, site):
+    """Create KPI cards for a site"""
+    site_data = df[df['Site'] == site].iloc[-1]
+    
+    # Calculate recovery rate
+    recovery_rate = site_data['Salt Rejection (%)']
+    
+    # Determine maintenance state
+    needs_maintenance = (
+        site_data['Pressure (psi)'] > THRESHOLDS['pressure']['high'] or
+        site_data['Flow Rate (gpm)'] < THRESHOLDS['flow_rate']['low'] or
+        recovery_rate < THRESHOLDS['salt_rejection']['low']
+    )
+    
+    # Create KPI card
+    return dbc.Card([
+        dbc.CardHeader(site, className='h5'),
+        dbc.CardBody([
+            html.Div([
+                html.H6("Recovery Rate"),
+                html.H4(f"{recovery_rate:.1f}%", 
+                       className=f"text-{'success' if recovery_rate > 97 else 'warning'}")
+            ], className='mb-3'),
+            html.Div([
+                html.H6("Maintenance Status"),
+                html.H4("Maintenance Required" if needs_maintenance else "Operating Normally",
+                       className=f"text-{'danger' if needs_maintenance else 'success'}")
+            ], className='mb-3'),
+            html.Div([
+                html.H6("Current Performance"),
+                dbc.Progress(
+                    value=min(100, (recovery_rate - 90) * 10),
+                    color="success" if recovery_rate > 97 else "warning",
+                    className="mb-3",
+                )
+            ])
+        ])
+    ], className='mb-4')
+
 # Load initial data
 df = load_data()
 
@@ -80,7 +119,7 @@ app.layout = dbc.Container([
         dbc.Col(html.H1("RO Process Monitoring Dashboard", className='text-center mb-4'), width=12)
     ]),
     
-    # World Map (moved to top)
+    # World Map
     dbc.Row([
         dbc.Col([
             dbc.Card([
@@ -91,6 +130,14 @@ app.layout = dbc.Container([
             ], className='mb-4')
         ], width=12)
     ]),
+    
+    # KPI Overview
+    dbc.Row([
+        dbc.Col([
+            html.H4("Site Performance Overview", className='mb-3'),
+            dbc.Row(id='site-kpi-cards')
+        ], width=12)
+    ], className='mb-4'),
     
     # Controls and Analysis
     dbc.Row([
@@ -113,13 +160,13 @@ app.layout = dbc.Container([
                     dcc.Checklist(
                         id='metric-selector',
                         options=[
-                            {'label': ' Pressure (psi)', 'value': 'pressure'},
-                            {'label': ' Flow Rate (gpm)', 'value': 'flow_rate'},
-                            {'label': ' Salt Rejection (%)', 'value': 'salt_rejection'},
-                            {'label': ' Temperature (C)', 'value': 'temperature'},
-                            {'label': ' pH Level', 'value': 'ph_level'}
+                            {'label': ' Pressure', 'value': 'Pressure (psi)'},
+                            {'label': ' Flow Rate', 'value': 'Flow Rate (gpm)'},
+                            {'label': ' Salt Rejection', 'value': 'Salt Rejection (%)'},
+                            {'label': ' Temperature', 'value': 'Temperature (C)'},
+                            {'label': ' pH Level', 'value': 'pH Level'}
                         ],
-                        value=['pressure', 'flow_rate'],
+                        value=['Pressure (psi)', 'Flow Rate (gpm)'],
                         className='mb-3'
                     ),
                     html.H4('Date Range'),
@@ -182,6 +229,22 @@ def update_map(selected_sites):
     return create_map(filtered_df)
 
 @app.callback(
+    Output('site-kpi-cards', 'children'),
+    [Input('site-selector', 'value')]
+)
+def update_kpi_cards(selected_sites):
+    if not selected_sites:
+        return []
+    
+    cards = []
+    for site in selected_sites:
+        cards.append(dbc.Col(
+            create_site_kpi_cards(df, site),
+            width=12 // len(selected_sites)
+        ))
+    return cards
+
+@app.callback(
     Output('trend-graphs', 'children'),
     [Input('site-selector', 'value'),
      Input('metric-selector', 'value'),
@@ -215,9 +278,9 @@ def update_trend_graphs(selected_sites, selected_metrics, start_date, end_date):
                 ))
             
             fig.update_layout(
-                title=f'{metric.replace("_", " ").title()} Over Time',
+                title=f'{metric} Over Time',
                 xaxis_title='Date',
-                yaxis_title=metric.replace("_", " ").title(),
+                yaxis_title=metric,
                 height=400,
                 showlegend=True
             )
