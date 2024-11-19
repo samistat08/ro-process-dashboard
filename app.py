@@ -9,28 +9,90 @@ from datetime import datetime
 # Initialize the app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-# Load data
 def load_data():
     """Load data from CSV file"""
     try:
         df = pd.read_csv('RO_system_data.csv')
         df['Date'] = pd.to_datetime(df['Date'])
+        
+        # Ensure consistent column names
+        column_mapping = {
+            'Pressure (psi)': 'pressure',
+            'Flow Rate (gpm)': 'flow_rate',
+            'Salt Rejection (%)': 'salt_rejection',
+            'Temperature (C)': 'temperature',
+            'pH Level': 'ph_level'
+        }
+        df = df.rename(columns=column_mapping)
         return df
     except Exception as e:
         print(f"Error loading data: {str(e)}")
         return pd.DataFrame()
 
+def create_map(df):
+    """Create interactive map with site markers"""
+    try:
+        fig = go.Figure()
+        
+        for _, site in df.groupby(['Site', 'Latitude', 'Longitude']).first().iterrows():
+            fig.add_trace(go.Scattergeo(
+                lon=[site['Longitude']],
+                lat=[site['Latitude']],
+                text=[f"<b>{site['Site']}</b>"],
+                mode='markers',
+                marker=dict(
+                    size=15,
+                    color='blue',
+                    opacity=0.8,
+                    symbol='circle'
+                ),
+                hoverinfo='text',
+                name=site['Site']
+            ))
+        
+        fig.update_layout(
+            geo=dict(
+                projection_type='equirectangular',
+                showland=True,
+                showcountries=True,
+                countrycolor='rgb(204, 204, 204)',
+                showocean=True,
+                oceancolor='rgb(230, 230, 250)',
+                center=dict(lon=0, lat=20),
+                projection_scale=1.5
+            ),
+            height=500,
+            margin=dict(l=0, r=0, t=0, b=0),
+            showlegend=False
+        )
+        
+        return fig
+    except Exception as e:
+        print(f"Error creating map: {str(e)}")
+        return go.Figure()
+
+# Load initial data
 df = load_data()
 
 # Create the layout
 app.layout = dbc.Container([
-    # Header
     dbc.Row([
-        dbc.Col(html.H1("RO Process Monitoring - Site Comparison", 
-                className='text-center mb-4 mt-4'))
+        dbc.Col(html.H1("RO Process Monitoring Dashboard", className='text-center mb-4'), width=12)
     ]),
     
-    # Main content
+    # World Map (moved to top)
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    html.H4("Site Locations", className='mb-3'),
+                    dcc.Graph(id='site-map', style={'height': '60vh'})
+                ])
+            ], className='mb-4')
+        ], width=12)
+    ]),
+    
+    # Controls and Analysis
     dbc.Row([
         # Left Panel - Controls
         dbc.Col([
@@ -40,8 +102,9 @@ app.layout = dbc.Container([
                     dcc.Checklist(
                         id='site-selector',
                         options=[
-                            {'label': f' Site {chr(65+i)}', 'value': f'Site_{chr(65+i)}'}
-                            for i in range(3)
+                            {'label': ' Site A', 'value': 'Site_A'},
+                            {'label': ' Site B', 'value': 'Site_B'},
+                            {'label': ' Site C', 'value': 'Site_C'}
                         ],
                         value=['Site_A', 'Site_B'],
                         className='mb-3'
@@ -50,13 +113,13 @@ app.layout = dbc.Container([
                     dcc.Checklist(
                         id='metric-selector',
                         options=[
-                            {'label': ' Pressure (psi)', 'value': 'Pressure (psi)'},
-                            {'label': ' Flow Rate (gpm)', 'value': 'Flow Rate (gpm)'},
-                            {'label': ' Salt Rejection (%)', 'value': 'Salt Rejection (%)'},
-                            {'label': ' Temperature (C)', 'value': 'Temperature (C)'},
-                            {'label': ' pH Level', 'value': 'pH Level'}
+                            {'label': ' Pressure (psi)', 'value': 'pressure'},
+                            {'label': ' Flow Rate (gpm)', 'value': 'flow_rate'},
+                            {'label': ' Salt Rejection (%)', 'value': 'salt_rejection'},
+                            {'label': ' Temperature (C)', 'value': 'temperature'},
+                            {'label': ' pH Level', 'value': 'ph_level'}
                         ],
-                        value=['Pressure (psi)', 'Flow Rate (gpm)'],
+                        value=['pressure', 'flow_rate'],
                         className='mb-3'
                     ),
                     html.H4('Date Range'),
@@ -77,7 +140,6 @@ app.layout = dbc.Container([
             dcc.Tabs([
                 dcc.Tab(label='Performance Trends', children=[
                     dbc.Card(dbc.CardBody([
-                        html.H3('Site Performance Comparison'),
                         dcc.Loading(
                             id="loading-trends",
                             type="circle",
@@ -87,7 +149,6 @@ app.layout = dbc.Container([
                 ]),
                 dcc.Tab(label='Statistical Analysis', children=[
                     dbc.Card(dbc.CardBody([
-                        html.H3('Statistical Comparison'),
                         dcc.Loading(
                             id="loading-stats",
                             type="circle",
@@ -97,7 +158,6 @@ app.layout = dbc.Container([
                 ]),
                 dcc.Tab(label='Correlation Analysis', children=[
                     dbc.Card(dbc.CardBody([
-                        html.H3('Metric Correlations'),
                         dcc.Loading(
                             id="loading-correlation",
                             type="circle",
@@ -109,6 +169,17 @@ app.layout = dbc.Container([
         ], width=9)
     ])
 ], fluid=True)
+
+# Callbacks
+@app.callback(
+    Output('site-map', 'figure'),
+    [Input('site-selector', 'value')]
+)
+def update_map(selected_sites):
+    if not selected_sites:
+        return create_map(df)
+    filtered_df = df[df['Site'].isin(selected_sites)]
+    return create_map(filtered_df)
 
 @app.callback(
     Output('trend-graphs', 'children'),
@@ -122,9 +193,6 @@ def update_trend_graphs(selected_sites, selected_metrics, start_date, end_date):
         return html.Div("Please select at least one site and metric")
     
     try:
-        if df.empty:
-            return html.Div("Error loading data. Please check the data source.")
-            
         df_filtered = df[df['Site'].isin(selected_sites)]
         
         if start_date and end_date:
@@ -139,34 +207,19 @@ def update_trend_graphs(selected_sites, selected_metrics, start_date, end_date):
             
             for site in selected_sites:
                 site_data = df_filtered[df_filtered['Site'] == site]
-                
                 fig.add_trace(go.Scatter(
                     x=site_data['Date'],
                     y=site_data[metric],
-                    name=f'{site} - Actual',
+                    name=site,
                     mode='lines+markers'
                 ))
-                
-                if len(site_data) > 1:
-                    x_numeric = np.arange(len(site_data))
-                    y_array = site_data[metric].astype(float).to_numpy()
-                    coefficients = np.polyfit(x_numeric, y_array, 1)
-                    trend_line = np.poly1d(coefficients)
-                    
-                    fig.add_trace(go.Scatter(
-                        x=site_data['Date'],
-                        y=trend_line(x_numeric),
-                        name=f'{site} - Trend',
-                        line=dict(dash='dash')
-                    ))
             
             fig.update_layout(
-                title=f'{metric} Comparison',
+                title=f'{metric.replace("_", " ").title()} Over Time',
                 xaxis_title='Date',
-                yaxis_title=metric,
+                yaxis_title=metric.replace("_", " ").title(),
                 height=400,
-                showlegend=True,
-                hovermode='x unified'
+                showlegend=True
             )
             
             graphs.append(dcc.Graph(figure=fig))
@@ -187,9 +240,6 @@ def update_stats_graphs(selected_sites, selected_metrics, start_date, end_date):
         return html.Div("Please select at least one site and metric")
     
     try:
-        if df.empty:
-            return html.Div("Error loading data. Please check the data source.")
-            
         df_filtered = df[df['Site'].isin(selected_sites)]
         
         if start_date and end_date:
@@ -198,32 +248,10 @@ def update_stats_graphs(selected_sites, selected_metrics, start_date, end_date):
                 (df_filtered['Date'] <= end_date)
             ]
         
-        graphs = []
-        
-        # Box plots for distribution comparison
-        for metric in selected_metrics:
-            fig = go.Figure()
-            for site in selected_sites:
-                site_data = df_filtered[df_filtered['Site'] == site]
-                fig.add_trace(go.Box(
-                    y=site_data[metric].astype(float),
-                    name=site,
-                    boxpoints='outliers'
-                ))
-            
-            fig.update_layout(
-                title=f'{metric} Distribution by Site',
-                yaxis_title=metric,
-                height=400,
-                showlegend=False
-            )
-            graphs.append(dcc.Graph(figure=fig))
-        
-        # Add summary statistics table
         stats_data = []
         for site in selected_sites:
             for metric in selected_metrics:
-                site_data = df_filtered[df_filtered['Site'] == site][metric].astype(float)
+                site_data = df_filtered[df_filtered['Site'] == site][metric]
                 stats = {
                     'Site': site,
                     'Metric': metric,
@@ -234,23 +262,14 @@ def update_stats_graphs(selected_sites, selected_metrics, start_date, end_date):
                 }
                 stats_data.append(stats)
         
-        stats_df = pd.DataFrame(stats_data)
-        stats_table = dbc.Table.from_dataframe(
-            stats_df,
+        return dbc.Table.from_records(
+            stats_data,
             striped=True,
             bordered=True,
-            hover=True,
-            className='mt-4'
+            hover=True
         )
-        
-        graphs.append(html.Div([
-            html.H4('Summary Statistics', className='mt-4'),
-            stats_table
-        ]))
-        
-        return graphs
     except Exception as e:
-        return html.Div(f"Error generating statistical graphs: {str(e)}")
+        return html.Div(f"Error generating statistics: {str(e)}")
 
 @app.callback(
     Output('correlation-graphs', 'children'),
@@ -264,9 +283,6 @@ def update_correlation_graphs(selected_sites, selected_metrics, start_date, end_
         return html.Div("Please select at least two metrics for correlation analysis")
     
     try:
-        if df.empty:
-            return html.Div("Error loading data. Please check the data source.")
-            
         df_filtered = df[df['Site'].isin(selected_sites)]
         
         if start_date and end_date:
@@ -276,19 +292,15 @@ def update_correlation_graphs(selected_sites, selected_metrics, start_date, end_
             ]
         
         graphs = []
-        
-        # Correlation matrix for each site
         for site in selected_sites:
             site_data = df_filtered[df_filtered['Site'] == site]
             
-            metric_arrays = [site_data[metric].astype(float).to_numpy() for metric in selected_metrics]
-            metric_arrays = np.array(metric_arrays)
-            corr_matrix = np.corrcoef(metric_arrays)
+            corr_matrix = site_data[selected_metrics].corr()
             
             fig = go.Figure(data=go.Heatmap(
-                z=corr_matrix,
-                x=selected_metrics,
-                y=selected_metrics,
+                z=corr_matrix.values,
+                x=corr_matrix.columns,
+                y=corr_matrix.columns,
                 colorscale='RdBu',
                 zmin=-1,
                 zmax=1
