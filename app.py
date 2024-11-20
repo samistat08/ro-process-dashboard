@@ -158,6 +158,20 @@ def create_status_indicators(site_data):
     }
     return status
 
+def create_kpi_section(title, metrics, site_data):
+    return html.Div([
+        html.H3(title, className="mb-3"),
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.H6(metric_name),
+                    html.H4(f"{site_data[metric_col].iloc[-1]:.1f} {unit}")
+                ], className="kpi-box mb-3")
+            ], width=3)
+            for metric_name, metric_col, unit in metrics
+        ])
+    ], className="mb-4")
+
 # Main app layout
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
@@ -190,10 +204,34 @@ performance_layout = html.Div([
                 options=[{'label': site, 'value': site} for site in sorted(df['site_name'].unique())],
                 value=df['site_name'].iloc[0]
             )
+        ], width=6),
+        dbc.Col([
+            html.Label("Select KPI Category:"),
+            dcc.Dropdown(
+                id='kpi-category-select',
+                options=[
+                    {'label': 'Operational Performance', 'value': 'operational'},
+                    {'label': 'Pressure Metrics', 'value': 'pressure'},
+                    {'label': 'Water Quality', 'value': 'water'},
+                    {'label': 'Energy Metrics', 'value': 'energy'},
+                    {'label': 'Maintenance Indicators', 'value': 'maintenance'}
+                ],
+                value='operational'
+            )
         ], width=6)
     ], className="mb-4"),
-    html.Div(id='performance-charts')
+    html.Div(id='kpi-sections'),
+    html.Div(id='trend-plots')
 ])
+
+@app.callback(
+    Output('url', 'pathname'),
+    [Input('world-map', 'clickData')],
+)
+def handle_map_click(clickData):
+    if clickData:
+        return '/performance'
+    return dash.no_update
 
 @app.callback(
     Output('overview-content', 'children'),
@@ -258,6 +296,62 @@ def update_overview(selected_sites):
         content.extend([gauge_row, status_row, html.Hr()])
     
     return html.Div(content)
+
+@app.callback(
+    [Output('kpi-sections', 'children'),
+     Output('trend-plots', 'children')],
+    [Input('performance-site-select', 'value'),
+     Input('kpi-category-select', 'value')]
+)
+def update_performance_page(selected_site, selected_category):
+    if not selected_site:
+        return [], []
+        
+    site_data = df[df['site_name'] == selected_site]
+    
+    # Define KPI metrics for each category
+    kpi_categories = {
+        'operational': [
+            ('Feed Flow Rate', 'flow-ID-001_feed', 'm³/h'),
+            ('Permeate Flow Rate', 'flow-ID-001_product', 'm³/h'),
+            ('Concentrate Flow Rate', 'flow-ID-001_waste', 'm³/h'),
+            ('Recovery Rate', 'recovery_rate', '%')
+        ],
+        'pressure': [
+            ('Feed Pressure', 'pressure_feed', 'bar'),
+            ('Concentrate Pressure', 'pressure_concentrate', 'bar'),
+            ('Differential Pressure', 'pressure_differential', 'bar')
+        ]
+        # Add other categories...
+    }
+    
+    # Create KPI sections
+    sections = []
+    for category, metrics in kpi_categories.items():
+        sections.append(create_kpi_section(
+            category.replace('_', ' ').title(),
+            metrics,
+            site_data
+        ))
+    
+    # Create trend plots for selected category
+    trend_plots = []
+    if selected_category in kpi_categories:
+        for metric_name, metric_col, unit in kpi_categories[selected_category]:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=site_data['timestamp'],
+                y=site_data[metric_col],
+                name=metric_name
+            ))
+            fig.update_layout(
+                title=metric_name,
+                height=300,
+                margin=dict(l=40, r=40, t=40, b=40)
+            )
+            trend_plots.append(dcc.Graph(figure=fig, className="mb-4"))
+    
+    return sections, html.Div(trend_plots)
 
 @app.callback(
     Output('page-content', 'children'),
