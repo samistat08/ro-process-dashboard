@@ -216,7 +216,7 @@ overview_layout = html.Div([
     html.Div(id='overview-content')
 ])
 
-# Updated Performance layout with category buttons
+# Updated Performance layout with simplified filters
 performance_layout = html.Div([
     html.H2("Site Performance", className="mb-4"),
     dbc.Row([
@@ -225,69 +225,12 @@ performance_layout = html.Div([
             dcc.Dropdown(
                 id='performance-site-select',
                 options=[{'label': site, 'value': site} for site in sorted(df['site_name'].unique())],
-                value=df['site_name'].iloc[0]
+                value=df['site_name'].iloc[0],
+                multi=False
             )
-        ], width=12)
-    ], className="mb-4"),
-
-    # Main KPIs section
-    html.H3("Main KPIs", className="mb-3"),
-    dbc.Row([
-        dbc.Col(
-            dbc.Button(
-                "Operational Performance",
-                id="btn-operational",
-                color="danger",
-                outline=True,
-                className="w-100 mb-2"
-            ), width=12
-        ),
-        dbc.Col(
-            dbc.Button(
-                "Pressure Metrics",
-                id="btn-pressure",
-                color="danger",
-                outline=True,
-                className="w-100 mb-2"
-            ), width=12
-        ),
-        dbc.Col(
-            dbc.Button(
-                "Water Quality",
-                id="btn-water",
-                color="danger",
-                outline=True,
-                className="w-100 mb-2"
-            ), width=12
-        ),
-        dbc.Col(
-            dbc.Button(
-                "Energy Metrics",
-                id="btn-energy",
-                color="danger",
-                outline=True,
-                className="w-100 mb-2"
-            ), width=12
-        ),
-        dbc.Col(
-            dbc.Button(
-                "Maintenance Indicators",
-                id="btn-maintenance",
-                color="danger",
-                outline=True,
-                className="w-100 mb-2"
-            ), width=12
-        ),
-    ], className="mb-4"),
-    
-    # KPI values section
-    html.Div(id='all-kpi-sections', className="mb-4"),
-    
-    # Trend Analysis section
-    html.H3("Trend Analysis", className="mb-4"),
-    dbc.Row([
+        ], width=6),
         dbc.Col([
-            html.Label("Select KPI Category for Trends:"),
+            html.Label("Select KPI Category:"),
             dcc.Dropdown(
                 id='kpi-category-select',
                 options=[
@@ -299,8 +242,14 @@ performance_layout = html.Div([
                 ],
                 value='operational'
             )
-        ], width=12)
+        ], width=6)
     ], className="mb-4"),
+    
+    # Current Values section
+    html.Div(id='current-kpi-values', className="mb-4"),
+    
+    # Trend Analysis section
+    html.H3("Trend Analysis", className="mb-4"),
     html.Div(id='trend-plots')
 ])
 
@@ -419,24 +368,46 @@ kpi_categories = {
 }
 
 @app.callback(
-    Output('all-kpi-sections', 'children'),
-    [Input('performance-site-select', 'value')]
+    Output('current-kpi-values', 'children'),
+    [Input('performance-site-select', 'value'),
+     Input('kpi-category-select', 'value')]
 )
-def update_all_kpi_sections(selected_site):
-    if not selected_site:
+def update_current_values(selected_site, selected_category):
+    if not selected_site or not selected_category:
         return []
         
-    site_data = df[df['site_name'] == selected_site]
-    sections = []
+    site_data = df[df['site_name'] == selected_site].copy()
+    if selected_category not in kpi_categories:
+        return []
+        
+    metrics = kpi_categories[selected_category]
     
-    for category, metrics in kpi_categories.items():
-        sections.append(create_kpi_section(
-            category.replace('_', ' ').title(),
-            metrics,
-            site_data
-        ))
+    # Filter out metrics that don't exist in the data
+    available_metrics = [
+        (metric_name, metric_col, unit) 
+        for metric_name, metric_col, unit in metrics 
+        if metric_col in site_data.columns
+    ]
     
-    return sections
+    if not available_metrics:
+        return html.Div("No data available for selected category", className="alert alert-warning")
+    
+    return dbc.Card(
+        dbc.CardBody([
+            html.H4("Current Values", className="mb-3"),
+            dbc.Row([
+                dbc.Col([
+                    html.Div([
+                        html.H6(f"{metric_name}", className="kpi-title"),
+                        html.H4(f"{site_data[metric_col].iloc[-1]:.1f} {unit}")
+                    ], className="kpi-box mb-3")
+                ], width=6)
+                for metric_name, metric_col, unit in available_metrics
+            ])
+        ]),
+        className="mb-4",
+        style={"backgroundColor": "#fff1f1"}
+    )
 
 @app.callback(
     Output('trend-plots', 'children'),
@@ -448,29 +419,23 @@ def update_trend_plots(selected_site, selected_category):
         return []
         
     site_data = df[df['site_name'] == selected_site].copy()
-    
-    # Calculate derived metrics
-    if 'pressure_differential' not in site_data.columns:
-        site_data['pressure_differential'] = site_data['pressure'].diff().fillna(0)
-    if 'specific_energy' not in site_data.columns:
-        site_data['specific_energy'] = site_data['energy_consumption'] / site_data['flow-ID-001_product']
-    
     trend_plots = []
     
     if selected_category in kpi_categories:
         for metric_name, metric_col, unit in kpi_categories[selected_category]:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=site_data['timestamp'],
-                y=site_data[metric_col],
-                name=metric_name
-            ))
-            fig.update_layout(
-                title=metric_name,
-                height=300,
-                margin=dict(l=40, r=40, t=40, b=40)
-            )
-            trend_plots.append(dcc.Graph(figure=fig, className="mb-4"))
+            if metric_col in site_data.columns:  # Check if column exists
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=site_data['timestamp'],
+                    y=site_data[metric_col],
+                    name=f"{metric_name} ({unit})"
+                ))
+                fig.update_layout(
+                    title=metric_name,
+                    height=300,
+                    margin=dict(l=40, r=40, t=40, b=40)
+                )
+                trend_plots.append(dcc.Graph(figure=fig, className="mb-4"))
     
     return html.Div(trend_plots)
 
