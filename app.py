@@ -121,9 +121,10 @@ def create_gauge(value, title, site):
         color = colors['good']
     
     return go.Figure(go.Indicator(
-        mode="gauge+number",
+        mode="gauge+number+delta",
         value=value,
-        title={'text': f"{title} - {site}"},
+        title={'text': f"{title} - {site}", 'font': {'size': 16}},
+        number={'font': {'size': 24, 'color': color}, 'suffix': '%'},
         gauge={
             'axis': {'range': [0, 100]},
             'bar': {'color': color},
@@ -131,9 +132,14 @@ def create_gauge(value, title, site):
                 {'range': [0, 60], 'color': 'rgba(231, 76, 60, 0.2)'},
                 {'range': [60, 80], 'color': 'rgba(241, 196, 15, 0.2)'},
                 {'range': [80, 100], 'color': 'rgba(46, 204, 113, 0.2)'}
-            ]
+            ],
+            'threshold': {
+                'line': {'color': color, 'width': 4},
+                'thickness': 0.75,
+                'value': value
+            }
         }
-    )).update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
+    )).update_layout(height=250, margin=dict(l=30, r=30, t=50, b=30))
 
 def create_status_indicators(site_data):
     # Calculate values
@@ -161,23 +167,32 @@ def create_status_indicators(site_data):
     return status
 
 def create_kpi_section(title, metrics, site_data):
-    # Calculate differential pressure if needed
-    if 'pressure_differential' not in site_data.columns:
-        site_data = site_data.copy()
-        site_data['pressure_differential'] = site_data['pressure'].diff()
+    site_data = site_data.copy()
     
+    # Calculate derived metrics
+    if 'pressure_differential' not in site_data.columns:
+        site_data['pressure_differential'] = site_data['pressure'].diff().fillna(0)
+    if 'specific_energy' not in site_data.columns:
+        site_data['specific_energy'] = site_data['energy_consumption'] / site_data['flow-ID-001_product']
+        
     return html.Div([
-        html.H3(title, className="mb-3"),
-        dbc.Row([
-            dbc.Col([
-                html.Div([
-                    html.H6(metric_name),
-                    html.H4(f"{site_data[metric_col].iloc[-1]:.1f} {unit}")
-                ], className="kpi-box mb-3")
-            ], width=3)
-            for metric_name, metric_col, unit in metrics
-        ])
-    ], className="mb-4")
+        dbc.Card(
+            dbc.CardBody([
+                html.H4(title.replace('_', ' ').title(), className="mb-3"),
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([
+                            html.H6(f"{metric_name}", className="kpi-title"),
+                            html.H4(f"{site_data[metric_col].iloc[-1]:.1f} {unit}")
+                        ], className="kpi-box mb-3")
+                    ], width=6)
+                    for metric_name, metric_col, unit in metrics
+                ])
+            ]),
+            className="mb-4",
+            style={"backgroundColor": "#fff1f1"}
+        )
+    ])
 
 # Main app layout
 app.layout = html.Div([
@@ -201,7 +216,7 @@ overview_layout = html.Div([
     html.Div(id='overview-content')
 ])
 
-# Updated Performance layout
+# Updated Performance layout with category buttons
 performance_layout = html.Div([
     html.H2("Site Performance", className="mb-4"),
     dbc.Row([
@@ -214,11 +229,61 @@ performance_layout = html.Div([
             )
         ], width=12)
     ], className="mb-4"),
+
+    # Main KPIs section
+    html.H3("Main KPIs", className="mb-3"),
+    dbc.Row([
+        dbc.Col(
+            dbc.Button(
+                "Operational Performance",
+                id="btn-operational",
+                color="danger",
+                outline=True,
+                className="w-100 mb-2"
+            ), width=12
+        ),
+        dbc.Col(
+            dbc.Button(
+                "Pressure Metrics",
+                id="btn-pressure",
+                color="danger",
+                outline=True,
+                className="w-100 mb-2"
+            ), width=12
+        ),
+        dbc.Col(
+            dbc.Button(
+                "Water Quality",
+                id="btn-water",
+                color="danger",
+                outline=True,
+                className="w-100 mb-2"
+            ), width=12
+        ),
+        dbc.Col(
+            dbc.Button(
+                "Energy Metrics",
+                id="btn-energy",
+                color="danger",
+                outline=True,
+                className="w-100 mb-2"
+            ), width=12
+        ),
+        dbc.Col(
+            dbc.Button(
+                "Maintenance Indicators",
+                id="btn-maintenance",
+                color="danger",
+                outline=True,
+                className="w-100 mb-2"
+            ), width=12
+        ),
+    ], className="mb-4"),
     
-    # Always visible KPI sections
+    # KPI values section
     html.Div(id='all-kpi-sections', className="mb-4"),
     
-    # Filter and trend plots
+    # Trend Analysis section
     html.H3("Trend Analysis", className="mb-4"),
     dbc.Row([
         dbc.Col([
@@ -287,21 +352,33 @@ def update_overview(selected_sites):
                 html.Div([
                     html.I(className=f"fas fa-circle text-{status['membrane_fouling']['status']}", 
                           style={'marginRight': '10px'}),
-                    f"Membrane Fouling: {status['membrane_fouling']['value']}",
+                    html.Span([
+                        "Membrane Fouling: ",
+                        html.B(status['membrane_fouling']['value'], 
+                              style={'fontSize': '18px', 'color': '#333'})
+                    ]),
                     html.Div(status['membrane_fouling']['alert'], 
                             className="alert alert-danger mt-1") if status['membrane_fouling']['alert'] else None
                 ], className="mb-3"),
                 html.Div([
                     html.I(className=f"fas fa-circle text-{status['pump_faults']['status']}", 
                           style={'marginRight': '10px'}),
-                    f"Pump/Motor Faults: {status['pump_faults']['value']}",
+                    html.Span([
+                        "Pump/Motor Faults: ",
+                        html.B(status['pump_faults']['value'],
+                              style={'fontSize': '18px', 'color': '#333'})
+                    ]),
                     html.Div(status['pump_faults']['alert'], 
                             className="alert alert-danger mt-1") if status['pump_faults']['alert'] else None
                 ], className="mb-3"),
                 html.Div([
                     html.I(className=f"fas fa-circle text-{status['flow_imbalances']['status']}", 
                           style={'marginRight': '10px'}),
-                    f"Flow Imbalances: {status['flow_imbalances']['value']}",
+                    html.Span([
+                        "Flow Imbalances: ",
+                        html.B(status['flow_imbalances']['value'],
+                              style={'fontSize': '18px', 'color': '#333'})
+                    ]),
                     html.Div(status['flow_imbalances']['alert'], 
                             className="alert alert-danger mt-1") if status['flow_imbalances']['alert'] else None
                 ], className="mb-3"),
@@ -370,7 +447,14 @@ def update_trend_plots(selected_site, selected_category):
     if not selected_site or not selected_category:
         return []
         
-    site_data = df[df['site_name'] == selected_site]
+    site_data = df[df['site_name'] == selected_site].copy()
+    
+    # Calculate derived metrics
+    if 'pressure_differential' not in site_data.columns:
+        site_data['pressure_differential'] = site_data['pressure'].diff().fillna(0)
+    if 'specific_energy' not in site_data.columns:
+        site_data['specific_energy'] = site_data['energy_consumption'] / site_data['flow-ID-001_product']
+    
     trend_plots = []
     
     if selected_category in kpi_categories:
