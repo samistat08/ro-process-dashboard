@@ -161,6 +161,11 @@ def create_status_indicators(site_data):
     return status
 
 def create_kpi_section(title, metrics, site_data):
+    # Calculate differential pressure if needed
+    if 'pressure_differential' not in site_data.columns:
+        site_data = site_data.copy()
+        site_data['pressure_differential'] = site_data['pressure'].diff()
+    
     return html.Div([
         html.H3(title, className="mb-3"),
         dbc.Row([
@@ -196,6 +201,7 @@ overview_layout = html.Div([
     html.Div(id='overview-content')
 ])
 
+# Updated Performance layout
 performance_layout = html.Div([
     html.H2("Site Performance", className="mb-4"),
     dbc.Row([
@@ -206,9 +212,17 @@ performance_layout = html.Div([
                 options=[{'label': site, 'value': site} for site in sorted(df['site_name'].unique())],
                 value=df['site_name'].iloc[0]
             )
-        ], width=6),
+        ], width=12)
+    ], className="mb-4"),
+    
+    # Always visible KPI sections
+    html.Div(id='all-kpi-sections', className="mb-4"),
+    
+    # Filter and trend plots
+    html.H3("Trend Analysis", className="mb-4"),
+    dbc.Row([
         dbc.Col([
-            html.Label("Select KPI Category:"),
+            html.Label("Select KPI Category for Trends:"),
             dcc.Dropdown(
                 id='kpi-category-select',
                 options=[
@@ -220,9 +234,8 @@ performance_layout = html.Div([
                 ],
                 value='operational'
             )
-        ], width=6)
+        ], width=12)
     ], className="mb-4"),
-    html.Div(id='kpi-sections'),
     html.Div(id='trend-plots')
 ])
 
@@ -299,54 +312,62 @@ def update_overview(selected_sites):
     
     return html.Div(content)
 
+# Define KPI categories globally
+kpi_categories = {
+    'operational': [
+        ('Feed Flow Rate', 'flow-ID-001_feed', 'm³/h'),
+        ('Permeate Flow Rate', 'flow-ID-001_product', 'm³/h'),
+        ('Concentrate Flow Rate', 'flow-ID-001_waste', 'm³/h'),
+        ('Recovery Rate', 'recovery_rate', '%')
+    ],
+    'pressure': [
+        ('Feed Pressure', 'pressure', 'bar')
+    ],
+    'water': [
+        ('pH Level', 'pH', ''),
+        ('Temperature', 'temperature', '°C')
+    ],
+    'energy': [
+        ('Energy Consumption', 'energy_consumption', 'kWh'),
+    ],
+    'maintenance': [
+        ('Membrane Fouling', 'pressure_trend', 'psi/day'),
+        ('Flow Balance', 'flow_balance', '%')
+    ]
+}
+
 @app.callback(
-    [Output('kpi-sections', 'children'),
-     Output('trend-plots', 'children')],
-    [Input('performance-site-select', 'value'),
-     Input('kpi-category-select', 'value')]
+    Output('all-kpi-sections', 'children'),
+    [Input('performance-site-select', 'value')]
 )
-def update_performance_page(selected_site, selected_category):
+def update_all_kpi_sections(selected_site):
     if not selected_site:
-        return [], []
+        return []
         
     site_data = df[df['site_name'] == selected_site]
-    
-    # Define KPI metrics for each category
-    kpi_categories = {
-        'operational': [
-            ('Feed Flow Rate', 'flow-ID-001_feed', 'm³/h'),
-            ('Permeate Flow Rate', 'flow-ID-001_product', 'm³/h'),
-            ('Concentrate Flow Rate', 'flow-ID-001_waste', 'm³/h'),
-            ('Recovery Rate', 'recovery_rate', '%')
-        ],
-        'pressure': [
-            ('Feed Pressure', 'pressure', 'bar'),  # Changed from pressure_feed
-            ('Differential Pressure', 'pressure_differential', 'bar')
-        ],
-        'water': [
-            ('pH Level', 'pH', ''),
-            ('Temperature', 'temperature', '°C')
-        ],
-        'energy': [
-            ('Energy Consumption', 'energy_consumption', 'kWh'),
-        ],
-        'maintenance': [
-            ('Membrane Fouling', 'pressure_trend', 'psi/day'),
-            ('Flow Balance', 'flow_balance', '%')
-        ]
-    }
-    
-    # Create KPI sections
     sections = []
-    if selected_category in kpi_categories:
+    
+    for category, metrics in kpi_categories.items():
         sections.append(create_kpi_section(
-            selected_category.replace('_', ' ').title(),
-            kpi_categories[selected_category],
+            category.replace('_', ' ').title(),
+            metrics,
             site_data
         ))
     
-    # Create trend plots for selected category
+    return sections
+
+@app.callback(
+    Output('trend-plots', 'children'),
+    [Input('performance-site-select', 'value'),
+     Input('kpi-category-select', 'value')]
+)
+def update_trend_plots(selected_site, selected_category):
+    if not selected_site or not selected_category:
+        return []
+        
+    site_data = df[df['site_name'] == selected_site]
     trend_plots = []
+    
     if selected_category in kpi_categories:
         for metric_name, metric_col, unit in kpi_categories[selected_category]:
             fig = go.Figure()
@@ -362,7 +383,7 @@ def update_performance_page(selected_site, selected_category):
             )
             trend_plots.append(dcc.Graph(figure=fig, className="mb-4"))
     
-    return sections, html.Div(trend_plots)
+    return html.Div(trend_plots)
 
 @app.callback(
     Output('page-content', 'children'),
