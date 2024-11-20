@@ -315,24 +315,29 @@ def update_overview(selected_sites):
 # Define KPI categories globally
 kpi_categories = {
     'operational': [
-        ('Feed Flow Rate', 'flow-ID-001_feed', 'm³/h'),
+        ('Feedwater Flow Rate', 'flow-ID-001_feed', 'm³/h'),
         ('Permeate Flow Rate', 'flow-ID-001_product', 'm³/h'),
-        ('Concentrate Flow Rate', 'flow-ID-001_waste', 'm³/h'),
+        ('Concentrate/Reject Flow Rate', 'flow-ID-001_waste', 'm³/h'),
         ('Recovery Rate', 'recovery_rate', '%')
     ],
     'pressure': [
-        ('Feed Pressure', 'pressure', 'bar')
+        ('Feed Pressure', 'pressure', 'bar'),
+        ('Differential Pressure', 'pressure_differential', 'bar'),
+        ('Concentrate Pressure', 'pressure_concentrate', 'bar')
     ],
     'water': [
-        ('pH Level', 'pH', ''),
-        ('Temperature', 'temperature', '°C')
+        ('Feedwater Conductivity', 'conductivity_feed', 'µS/cm'),
+        ('Permeate Conductivity', 'conductivity_permeate', 'µS/cm'),
+        ('Salt Rejection Rate', 'salt_rejection', '%')
     ],
     'energy': [
         ('Energy Consumption', 'energy_consumption', 'kWh'),
+        ('Specific Energy Consumption', 'specific_energy', 'kWh/m³')
     ],
     'maintenance': [
-        ('Membrane Fouling', 'pressure_trend', 'psi/day'),
-        ('Flow Balance', 'flow_balance', '%')
+        ('Normalized Permeate Flow', 'normalized_flow', 'm³/h'),
+        ('Membrane Fouling Factor', 'fouling_factor', '%'),
+        ('Scaling Index', 'scaling_index', '')
     ]
 }
 
