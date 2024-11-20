@@ -10,7 +10,7 @@ import pandas as pd
 # Initialize Dash app with proper theme
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.BOOTSTRAP, "https://use.fontawesome.com/releases/v5.15.4/css/all.css"],
     suppress_callback_exceptions=True,
     routes_pathname_prefix='/'
 )
@@ -134,16 +134,28 @@ def create_gauge(value, title, site):
     )).update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
 
 def create_status_indicators(site_data):
-    thresholds = {
-        'membrane_fouling': lambda x: x['pressure'] > 500,
-        'pump_faults': lambda x: x['flow-ID-001_feed'] < 40,
-        'flow_imbalances': lambda x: abs(x['flow-ID-001_feed'] - x['flow-ID-001_product'] - x['flow-ID-001_waste']) > 5
+    # Calculate values
+    pressure_trend = site_data['pressure'].rolling(window=24).mean().diff()
+    flow_difference = abs(site_data['flow-ID-001_feed'] - site_data['flow-ID-001_product'] - site_data['flow-ID-001_waste'])
+    
+    # Calculate status with specific values
+    status = {
+        'membrane_fouling': {
+            'value': f"{pressure_trend.iloc[-1]:.2f} psi/day",
+            'status': 'danger' if pressure_trend.iloc[-1] > 5 else 'success',
+            'alert': "High membrane fouling rate detected" if pressure_trend.iloc[-1] > 5 else None
+        },
+        'pump_faults': {
+            'value': f"{site_data['flow-ID-001_feed'].iloc[-1]:.1f} gpm",
+            'status': 'danger' if site_data['flow-ID-001_feed'].iloc[-1] < 40 else 'success',
+            'alert': "Low flow rate indicates possible pump fault" if site_data['flow-ID-001_feed'].iloc[-1] < 40 else None
+        },
+        'flow_imbalances': {
+            'value': f"{flow_difference.iloc[-1]:.1f} gpm",
+            'status': 'danger' if flow_difference.iloc[-1] > 5 else 'success',
+            'alert': "Flow imbalance detected" if flow_difference.iloc[-1] > 5 else None
+        }
     }
-    
-    status = {}
-    for indicator, check in thresholds.items():
-        status[indicator] = 'danger' if check(site_data.iloc[-1]) else 'success'
-    
     return status
 
 # Main app layout
@@ -220,17 +232,26 @@ def update_overview(selected_sites):
             html.H4(f"Site {site} Status", className="mb-3"),
             dbc.Col([
                 html.Div([
-                    html.I(className=f"fas fa-circle text-{status['membrane_fouling']}", style={'marginRight': '10px'}),
-                    "Membrane Fouling"
-                ], className="mb-2"),
+                    html.I(className=f"fas fa-circle text-{status['membrane_fouling']['status']}", 
+                          style={'marginRight': '10px'}),
+                    f"Membrane Fouling: {status['membrane_fouling']['value']}",
+                    html.Div(status['membrane_fouling']['alert'], 
+                            className="alert alert-danger mt-1") if status['membrane_fouling']['alert'] else None
+                ], className="mb-3"),
                 html.Div([
-                    html.I(className=f"fas fa-circle text-{status['pump_faults']}", style={'marginRight': '10px'}),
-                    "Pump or Motor Faults"
-                ], className="mb-2"),
+                    html.I(className=f"fas fa-circle text-{status['pump_faults']['status']}", 
+                          style={'marginRight': '10px'}),
+                    f"Pump/Motor Faults: {status['pump_faults']['value']}",
+                    html.Div(status['pump_faults']['alert'], 
+                            className="alert alert-danger mt-1") if status['pump_faults']['alert'] else None
+                ], className="mb-3"),
                 html.Div([
-                    html.I(className=f"fas fa-circle text-{status['flow_imbalances']}", style={'marginRight': '10px'}),
-                    "Flow Imbalances"
-                ], className="mb-2"),
+                    html.I(className=f"fas fa-circle text-{status['flow_imbalances']['status']}", 
+                          style={'marginRight': '10px'}),
+                    f"Flow Imbalances: {status['flow_imbalances']['value']}",
+                    html.Div(status['flow_imbalances']['alert'], 
+                            className="alert alert-danger mt-1") if status['flow_imbalances']['alert'] else None
+                ], className="mb-3"),
             ])
         ], className="mb-4")
         
