@@ -19,6 +19,10 @@ args = "Data Simulator"
 task = "workflow.run"
 args = "Streamlit App"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Dash App"
+
 [[workflows.workflow]]
 name = "Data Simulator"
 author = "agent"
@@ -46,6 +50,21 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "streamlit run main.py"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Dash App"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python app.py"
 waitForPort = 5000
 
 [deployment]

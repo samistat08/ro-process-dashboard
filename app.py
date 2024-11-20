@@ -28,7 +28,7 @@ fig = go.Figure(data=go.Scattergeo(
     mode='markers',
     marker=dict(
         size=12,
-        color='red',
+        color='#ff4444',
         opacity=0.8,
         symbol='circle'
     ),
@@ -76,27 +76,27 @@ sidebar = html.Div([
     # Logo
     html.Img(src='/assets/veolia-logo.svg', style={'width': '100%', 'margin-bottom': '2rem'}),
     
-    # Pages section - simplified
-    html.H6("Pages:", style={'margin-bottom': '1rem', 'color': '#333'}),
-    html.Div([
-        dcc.Link("Site Map", href="/", style={'color': '#ff4444', 'text-decoration': 'none', 'display': 'block'}),
-        dcc.Link("Overview", href="/overview", style={'color': '#333', 'text-decoration': 'none', 'display': 'block'}),
-        dcc.Link("Site Performance", href="/performance", style={'color': '#333', 'text-decoration': 'none', 'display': 'block'})
-    ], style={'margin-bottom': '2rem'}),
+    # Pages section - exactly as in screenshot
+    html.H6("Pages:", style={'margin-bottom': '1rem', 'color': '#333', 'font-weight': 'normal'}),
+    dbc.Nav([
+        dbc.NavLink("Site Map", href="/", id="page-1", style={'color': '#ff4444', 'padding': '0.2rem 0'}),
+        dbc.NavLink("Overview", href="/overview", id="page-2", style={'color': '#333', 'padding': '0.2rem 0'}),
+        dbc.NavLink("Site Performance", href="/performance", id="page-3", style={'color': '#333', 'padding': '0.2rem 0'})
+    ],
+    vertical=True,
+    pills=False,
+    style={'margin-bottom': '2rem', 'background': 'none'}
+    ),
     
     html.Hr(),
     
     # Filters
-    html.Label("Date Filter", style={'color': '#333', 'display': 'block', 'margin-bottom': '0.5rem'}),
-    dcc.DatePickerRange(
-        id='date-filter',
-        style={'margin-bottom': '1rem'}
-    ),
-    html.Label("Site Filter", style={'color': '#333', 'display': 'block', 'margin-bottom': '0.5rem'}),
-    dcc.Dropdown(
-        id='site-filter',
-        style={'margin-bottom': '1rem'}
-    )
+    html.Div([
+        html.Label("Date Filter", style={'margin-top': '1rem'}),
+        dcc.DatePickerRange(id='date-filter'),
+        html.Label("Site Filter", style={'margin-top': '1rem'}),
+        dcc.Dropdown(id='site-filter', multi=False)
+    ])
 ], style=SIDEBAR_STYLE)
 
 # Main app layout
@@ -197,13 +197,19 @@ def update_performance_charts(selected_site):
     return create_performance_charts(site_data)
 
 @app.callback(
-    Output('url', 'pathname'),
-    [Input('world-map', 'clickData')]
+    [Output('page-1', 'style'),
+     Output('page-2', 'style'),
+     Output('page-3', 'style')],
+    [Input('url', 'pathname')]
 )
-def handle_map_click(clickData):
-    if clickData:
-        return '/performance'
-    return dash.no_update
+def update_nav_styles(pathname):
+    styles = []
+    for path in ['/', '/overview', '/performance']:
+        if pathname == path:
+            styles.append({'color': '#ff4444', 'padding': '0.2rem 0'})
+        else:
+            styles.append({'color': '#333', 'padding': '0.2rem 0'})
+    return styles
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=False)
