@@ -17,7 +17,11 @@ args = "Data Simulator"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "RO Dashboard"
+args = "Streamlit App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Dash App"
 
 [[workflows.workflow]]
 name = "Data Simulator"
@@ -34,7 +38,22 @@ task = "shell.exec"
 args = "python utils/data_simulator.py"
 
 [[workflows.workflow]]
-name = "RO Dashboard"
+name = "Streamlit App"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "streamlit run main.py --server.port 8501 --server.address 0.0.0.0"
+waitForPort = 8501
+
+[[workflows.workflow]]
+name = "Dash App"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -52,9 +71,25 @@ waitForPort = 5000
 run = ["sh", "-c", "streamlit run main.py --server.port 5000"]
 
 [[ports]]
+localPort = 3000
+externalPort = 3002
+
+[[ports]]
+localPort = 3001
+externalPort = 4200
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
 [[ports]]
 localPort = 5001
 externalPort = 3000
+
+[[ports]]
+localPort = 8050
+externalPort = 3003
+
+[[ports]]
+localPort = 8501
+externalPort = 3001

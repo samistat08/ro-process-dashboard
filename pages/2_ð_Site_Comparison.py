@@ -1,8 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 from utils.data_processor import load_data
 from datetime import datetime, timedelta
+
+st.set_page_config(page_title="Site Comparison", page_icon="📊", layout="wide")
 
 def create_comparison_chart(df, sites, metric):
     """Create a comparison chart for selected sites and metric"""
@@ -18,9 +21,9 @@ def create_comparison_chart(df, sites, metric):
         ))
     
     fig.update_layout(
-        title=f'{metric.replace("_", " ").title()} Comparison',
+        title=f'{metric} Comparison',
         xaxis_title='Time',
-        yaxis_title=metric.replace("_", " ").title(),
+        yaxis_title=metric,
         height=400,
         showlegend=True,
         hovermode='x unified'
@@ -42,7 +45,7 @@ def create_radar_chart(df, sites, metrics):
         
         fig.add_trace(go.Scatterpolar(
             r=values,
-            theta=[metric.replace("_", " ").title() for metric in metrics],
+            theta=metrics,
             name=site,
             fill='toself'
         ))
@@ -59,36 +62,9 @@ def create_radar_chart(df, sites, metrics):
     )
     return fig
 
-def create_bar_comparison(df, sites, metric):
-    """Create a bar chart comparing average values across sites"""
-    site_averages = []
-    for site in sites:
-        site_data = df[df['site_name'] == site]
-        site_averages.append({
-            'site': site,
-            'average': site_data[metric].mean()
-        })
-    
-    fig = go.Figure(data=[
-        go.Bar(
-            x=[data['site'] for data in site_averages],
-            y=[data['average'] for data in site_averages],
-            text=[f"{data['average']:.2f}" for data in site_averages],
-            textposition='auto',
-        )
-    ])
-    
-    fig.update_layout(
-        title=f'Average {metric.replace("_", " ").title()} by Site',
-        xaxis_title='Site',
-        yaxis_title=f'Average {metric.replace("_", " ").title()}',
-        height=400
-    )
-    return fig
-
-st.title("📊 Site Comparison Analysis")
-
 try:
+    st.title("📊 Site Comparison Analysis")
+    
     # Load data
     df = load_data(use_real_time=True)
     
@@ -96,27 +72,22 @@ try:
         st.error("No data available. Please check the data source.")
         st.stop()
     
-    # Get unique sites
-    sites = df['site_name'].unique()
+    # Sidebar controls
+    st.sidebar.header("Comparison Settings")
     
     # Site selection
-    st.sidebar.header("Comparison Settings")
+    available_sites = sorted(df['site_name'].unique())
     selected_sites = st.sidebar.multiselect(
         "Select Sites to Compare",
-        options=sites,
-        default=list(sites)[:2]  # Default to first two sites
+        options=available_sites,
+        default=available_sites[:2]
     )
     
     if len(selected_sites) < 2:
         st.warning("Please select at least two sites for comparison")
         st.stop()
     
-    # Available metrics for comparison (only numeric columns)
-    numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
-    metrics = [col for col in numeric_columns if col not in ['site_id', 'Latitude', 'Longitude']]
-    
     # Time range selection
-    st.sidebar.subheader("Time Range")
     time_options = {
         'Last 24 Hours': timedelta(days=1),
         'Last Week': timedelta(days=7),
@@ -130,16 +101,27 @@ try:
         cutoff_time = datetime.now() - time_options[selected_time]
         df = df[df['timestamp'] >= cutoff_time]
     
+    # Available metrics for comparison
+    metrics = ['pressure', 'flow-ID-001_feed', 'recovery_rate', 'temperature', 'pH']
+    metric_labels = {
+        'pressure': 'Pressure (psi)',
+        'flow-ID-001_feed': 'Flow Rate (gpm)',
+        'recovery_rate': 'Recovery Rate (%)',
+        'temperature': 'Temperature (°C)',
+        'pH': 'pH Level'
+    }
+    
     # Create tabs for different comparison views
-    tab1, tab2, tab3, tab4 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Average Comparison", "Site Data Table"])
+    tab1, tab2, tab3 = st.tabs(["Trend Comparison", "Multi-metric Analysis", "Performance Summary"])
     
     with tab1:
         st.subheader("Trend Comparison")
         selected_metric = st.selectbox(
-            "Select Metric for Trend Comparison",
+            "Select Metric for Comparison",
             options=metrics,
-            format_func=lambda x: x.replace("_", " ").title()
+            format_func=lambda x: metric_labels[x]
         )
+        
         if selected_metric:
             trend_fig = create_comparison_chart(df, selected_sites, selected_metric)
             st.plotly_chart(trend_fig, use_container_width=True)
@@ -150,48 +132,29 @@ try:
             "Select Metrics for Radar Chart",
             options=metrics,
             default=metrics[:4],
-            format_func=lambda x: x.replace("_", " ").title()
+            format_func=lambda x: metric_labels[x]
         )
+        
         if selected_metrics:
             radar_fig = create_radar_chart(df, selected_sites, selected_metrics)
             st.plotly_chart(radar_fig, use_container_width=True)
-        else:
-            st.info("Please select at least one metric for comparison")
     
     with tab3:
-        st.subheader("Average Values Comparison")
-        selected_metric_avg = st.selectbox(
-            "Select Metric for Average Comparison",
-            options=metrics,
-            format_func=lambda x: x.replace("_", " ").title(),
-            key="avg_metric"
-        )
-        if selected_metric_avg:
-            bar_fig = create_bar_comparison(df, selected_sites, selected_metric_avg)
-            st.plotly_chart(bar_fig, use_container_width=True)
-    
-    with tab4:
-        st.subheader("Site Data Table")
-        # Display a table with detailed data for selected sites
+        st.subheader("Performance Summary")
+        summary_data = []
+        
         for site in selected_sites:
-            site_df = df[df['site_name'] == site]
-            st.write(f"## {site}")
-            st.dataframe(site_df)
-    
-    # Summary statistics
-    st.subheader("Summary Statistics")
-    summary_data = []
-    for site in selected_sites:
-        site_data = df[df['site_name'] == site]
-        summary = {
-            'Site': site,
-            'Average Recovery Rate': f"{site_data['recovery_rate'].mean():.2f}%",
-            'Average Pressure': f"{site_data['pressure'].mean():.2f} psi",
-            'Average Feed Flow': f"{site_data['flow-ID-001_feed'].mean():.2f} gpm"
-        }
-        summary_data.append(summary)
-    
-    st.dataframe(pd.DataFrame(summary_data), hide_index=True)
+            site_data = df[df['site_name'] == site]
+            summary = {
+                'Site': site,
+                'Recovery Rate': f"{site_data['recovery_rate'].mean():.1f}%",
+                'Pressure': f"{site_data['pressure'].mean():.1f} psi",
+                'Flow Rate': f"{site_data['flow-ID-001_feed'].mean():.1f} gpm",
+                'Temperature': f"{site_data['temperature'].mean():.1f}°C"
+            }
+            summary_data.append(summary)
+        
+        st.dataframe(pd.DataFrame(summary_data))
 
 except Exception as e:
     st.error(f"An error occurred: {str(e)}")
