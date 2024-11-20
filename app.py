@@ -94,13 +94,15 @@ sidebar = html.Div([
     html.Div([
         html.Label("Date Filter", style={'margin-top': '1rem'}),
         dcc.DatePickerRange(id='date-filter'),
-        html.Label("Site Filter", style={'margin-top': '1rem'}),
-        dcc.Dropdown(
-            id='site-filter',
-            options=[{'label': site, 'value': site} for site in df['site_name'].unique()],
-            multi=True,
-            placeholder="Select sites..."
-        )
+        html.Div([  # Wrap site filter in div with ID
+            html.Label("Site Filter", style={'margin-top': '1rem'}),
+            dcc.Dropdown(
+                id='site-filter',
+                options=[{'label': site, 'value': site} for site in df['site_name'].unique()],
+                multi=True,
+                placeholder="Select sites..."
+            )
+        ], id='sidebar-site-filter')
     ])
 ], style=SIDEBAR_STYLE)
 
@@ -318,19 +320,28 @@ def update_performance_page(selected_site, selected_category):
             ('Recovery Rate', 'recovery_rate', '%')
         ],
         'pressure': [
-            ('Feed Pressure', 'pressure_feed', 'bar'),
-            ('Concentrate Pressure', 'pressure_concentrate', 'bar'),
+            ('Feed Pressure', 'pressure', 'bar'),  # Changed from pressure_feed
             ('Differential Pressure', 'pressure_differential', 'bar')
+        ],
+        'water': [
+            ('pH Level', 'pH', ''),
+            ('Temperature', 'temperature', '°C')
+        ],
+        'energy': [
+            ('Energy Consumption', 'energy_consumption', 'kWh'),
+        ],
+        'maintenance': [
+            ('Membrane Fouling', 'pressure_trend', 'psi/day'),
+            ('Flow Balance', 'flow_balance', '%')
         ]
-        # Add other categories...
     }
     
     # Create KPI sections
     sections = []
-    for category, metrics in kpi_categories.items():
+    if selected_category in kpi_categories:
         sections.append(create_kpi_section(
-            category.replace('_', ' ').title(),
-            metrics,
+            selected_category.replace('_', ' ').title(),
+            kpi_categories[selected_category],
             site_data
         ))
     
@@ -378,6 +389,15 @@ def update_nav_styles(pathname):
         else:
             styles.append({'color': '#333', 'padding': '0.2rem 0'})
     return styles
+
+@app.callback(
+    Output('sidebar-site-filter', 'style'),
+    [Input('url', 'pathname')]
+)
+def toggle_site_filter(pathname):
+    if pathname == '/performance':
+        return {'display': 'none'}
+    return {'display': 'block'}
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=False)
