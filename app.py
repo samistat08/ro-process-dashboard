@@ -7,13 +7,10 @@ import dash_bootstrap_components as dbc
 from datetime import datetime, timedelta
 import pandas as pd
 
-# Initialize Dash app with proper theme and configuration
+# Initialize Dash app with proper theme
 app = dash.Dash(
     __name__,
-    external_stylesheets=[
-        dbc.themes.BOOTSTRAP,
-        'https://use.fontawesome.com/releases/v5.15.4/css/all.css'
-    ],
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=True,
     routes_pathname_prefix='/'
 )
@@ -79,44 +76,28 @@ sidebar = html.Div([
     # Logo
     html.Img(src='/assets/veolia-logo.svg', style={'width': '100%', 'margin-bottom': '2rem'}),
     
-    # Pages section
-    html.H6("Pages:", style={'margin-bottom': '1rem', 'color': '#666', 'font-size': '0.9rem'}),
-    dbc.Nav([
-        dbc.NavItem([
-            dbc.NavLink([
-                html.I(className="fas fa-circle me-2"),
-                "Site Map"
-            ], href="/", id="site-map-link", active=True)
-        ]),
-        dbc.NavItem([
-            dbc.NavLink([
-                html.I(className="fas fa-circle me-2"),
-                "Overview"
-            ], href="/overview", id="overview-link")
-        ]),
-        dbc.NavItem([
-            dbc.NavLink([
-                html.I(className="fas fa-circle me-2"),
-                "Site Performance"
-            ], href="/performance", id="performance-link")
-        ])
-    ],
-    vertical=True,
-    pills=True,
-    className="mb-4"
-    ),
+    # Pages section - simplified
+    html.H6("Pages:", style={'margin-bottom': '1rem', 'color': '#333'}),
+    html.Div([
+        dcc.Link("Site Map", href="/", style={'color': '#ff4444', 'text-decoration': 'none', 'display': 'block'}),
+        dcc.Link("Overview", href="/overview", style={'color': '#333', 'text-decoration': 'none', 'display': 'block'}),
+        dcc.Link("Site Performance", href="/performance", style={'color': '#333', 'text-decoration': 'none', 'display': 'block'})
+    ], style={'margin-bottom': '2rem'}),
     
     html.Hr(),
     
     # Filters
-    html.Div([
-        html.Label("Date Filter", style={'color': '#666', 'font-size': '0.9rem'}),
-        dcc.DatePickerRange(id='date-filter', className="mb-3"),
-        html.Label("Site Filter", style={'color': '#666', 'font-size': '0.9rem'}),
-        dcc.Dropdown(id='site-filter', className="mb-3")
-    ])
-],
-style=SIDEBAR_STYLE)
+    html.Label("Date Filter", style={'color': '#333', 'display': 'block', 'margin-bottom': '0.5rem'}),
+    dcc.DatePickerRange(
+        id='date-filter',
+        style={'margin-bottom': '1rem'}
+    ),
+    html.Label("Site Filter", style={'color': '#333', 'display': 'block', 'margin-bottom': '0.5rem'}),
+    dcc.Dropdown(
+        id='site-filter',
+        style={'margin-bottom': '1rem'}
+    )
+], style=SIDEBAR_STYLE)
 
 # Main app layout
 app.layout = html.Div([
@@ -192,67 +173,17 @@ performance_layout = html.Div([
     html.Div(id='performance-charts')
 ])
 
-# Add custom CSS for navigation
-app.index_string = '''
-<!DOCTYPE html>
-<html>
-    <head>
-        {%metas%}
-        <title>Smart RO - V0</title>
-        {%favicon%}
-        {%css%}
-        <style>
-            .nav-link {
-                color: #333;
-                padding: 0.5rem 1rem;
-                margin: 0.2rem 0;
-                border-radius: 0.25rem;
-                display: flex;
-                align-items: center;
-            }
-            .nav-link i {
-                font-size: 0.8rem;
-                margin-right: 0.5rem;
-            }
-            .nav-link.active {
-                background-color: #ff4444 !important;
-                color: white !important;
-            }
-            .nav-link:hover:not(.active) {
-                background-color: #f8f9fa;
-                color: #ff4444;
-            }
-            .nav-link.active i {
-                color: white;
-            }
-        </style>
-    </head>
-    <body>
-        {%app_entry%}
-        <footer>
-            {%config%}
-            {%scripts%}
-            {%renderer%}
-        </footer>
-    </body>
-</html>
-'''
-
 # Callbacks
 @app.callback(
-    [Output('page-content', 'children'),
-     Output('site-map-link', 'active'),
-     Output('overview-link', 'active'),
-     Output('performance-link', 'active')],
+    Output('page-content', 'children'),
     [Input('url', 'pathname')]
 )
 def display_page(pathname):
     if pathname == '/overview':
-        return overview_layout, False, True, False
+        return overview_layout
     elif pathname == '/performance':
-        return performance_layout, False, False, True
-    else:
-        return map_layout, True, False, False
+        return performance_layout
+    return map_layout
 
 @app.callback(
     Output('performance-charts', 'children'),
