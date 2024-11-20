@@ -30,16 +30,17 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
     /* Sidebar styling */
     section[data-testid="stSidebar"] {
-        background-color: #f0f0f0;
+        background-color: #f8f9fa;
         box-shadow: 2px 0px 5px rgba(0,0,0,0.1);
-        padding: 2rem 1rem;
+        padding: 1rem;
     }
+    
     /* Navigation styling */
     .nav-link {
         color: #333;
-        font-weight: 500;
         padding: 0.5rem 1rem;
         margin: 0.2rem 0;
         border-radius: 0.25rem;
@@ -47,18 +48,19 @@ st.markdown("""
     .nav-link:hover {
         background-color: #f8f9fa;
         color: #ff4444;
-        text-decoration: none;
     }
     .nav-link.active {
         background-color: #ff4444 !important;
         color: white !important;
     }
-    /* Clean filters look */
-    .stSelectbox, .stMultiSelect {
-        background-color: white;
-        border-radius: 4px;
-        margin: 0.5rem 0;
+    
+    /* Filter styling */
+    .filter-label {
+        color: #666;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
     }
+    
     /* Remove padding from containers */
     .element-container {
         padding: 0 !important;
@@ -74,19 +76,22 @@ df = load_data(use_real_time=True)
 
 # Sidebar content
 with st.sidebar:
+    # Logo at the top
     st.image('assets/veolia-logo.svg', use_column_width=True)
+    st.markdown("<div style='margin: 1rem 0;'></div>", unsafe_allow_html=True)
     
-    # Filters section
-    st.markdown("<h6 style='color: #666; margin: 1rem 0;'>Filters</h6>", unsafe_allow_html=True)
+    # Site filter directly under logo
+    st.markdown("<div class='filter-label'>Site Filter</div>", unsafe_allow_html=True)
+    sites = sorted(df['site_name'].unique())
+    selected_sites = st.multiselect('', sites, default=sites, key='sites')
     
-    # Date filter
+    st.markdown("<div style='margin: 1rem 0;'><hr></div>", unsafe_allow_html=True)
+    
+    # Date filter below
+    st.markdown("<div class='filter-label'>Date Filter</div>", unsafe_allow_html=True)
     dates = df['timestamp'].dt.date.unique()
     start_date = st.date_input('Start Date', min(dates), key='start_date')
     end_date = st.date_input('End Date', max(dates), key='end_date')
-    
-    # Site filter
-    sites = sorted(df['site_name'].unique())
-    selected_sites = st.multiselect('Select Sites', sites, default=sites, key='sites')
 
 # Filter data based on selection
 mask = (df['timestamp'].dt.date >= start_date) & (df['timestamp'].dt.date <= end_date)
@@ -110,7 +115,7 @@ fig = go.Figure(data=go.Scattergeo(
 ))
 
 fig.update_layout(
-    title=None,  # Remove title for cleaner look
+    title=None,
     geo=dict(
         projection_type='natural earth',
         showland=True,
@@ -123,7 +128,7 @@ fig.update_layout(
         projection_scale=1.8
     ),
     height=800,
-    margin=dict(l=0, r=0, t=0, b=0),  # Remove all margins
+    margin=dict(l=0, r=0, t=0, b=0),
     showlegend=False,
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)'
