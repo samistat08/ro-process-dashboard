@@ -68,7 +68,7 @@ SIDEBAR_STYLE = {
 
 CONTENT_STYLE = {
     "margin-left": "250px",
-    "padding": "0",
+    "padding": "2rem",
 }
 
 # Create sidebar
@@ -76,7 +76,7 @@ sidebar = html.Div([
     # Logo
     html.Img(src='/assets/veolia-logo.svg', style={'width': '100%', 'margin-bottom': '2rem'}),
     
-    # Pages section - exactly as in screenshot
+    # Pages section
     html.H6("Pages:", style={'margin-bottom': '1rem', 'color': '#333', 'font-weight': 'normal'}),
     dbc.Nav([
         dbc.NavLink("Site Map", href="/", id="page-1", style={'color': '#ff4444', 'padding': '0.2rem 0'}),
@@ -95,9 +95,56 @@ sidebar = html.Div([
         html.Label("Date Filter", style={'margin-top': '1rem'}),
         dcc.DatePickerRange(id='date-filter'),
         html.Label("Site Filter", style={'margin-top': '1rem'}),
-        dcc.Dropdown(id='site-filter', multi=False)
+        dcc.Dropdown(
+            id='site-filter',
+            options=[{'label': site, 'value': site} for site in df['site_name'].unique()],
+            multi=True,
+            placeholder="Select sites..."
+        )
     ])
 ], style=SIDEBAR_STYLE)
+
+def create_gauge(value, title, site):
+    colors = {
+        'good': '#2ECC71',
+        'warning': '#F1C40F',
+        'danger': '#E74C3C'
+    }
+    
+    if value < 60:
+        color = colors['danger']
+    elif value < 80:
+        color = colors['warning']
+    else:
+        color = colors['good']
+    
+    return go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        title={'text': f"{title} - {site}"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': color},
+            'steps': [
+                {'range': [0, 60], 'color': 'rgba(231, 76, 60, 0.2)'},
+                {'range': [60, 80], 'color': 'rgba(241, 196, 15, 0.2)'},
+                {'range': [80, 100], 'color': 'rgba(46, 204, 113, 0.2)'}
+            ]
+        }
+    )).update_layout(height=200, margin=dict(l=30, r=30, t=50, b=30))
+
+def create_status_indicators(site_data):
+    thresholds = {
+        'membrane_fouling': lambda x: x['pressure'] > 500,
+        'pump_faults': lambda x: x['flow-ID-001_feed'] < 40,
+        'flow_imbalances': lambda x: abs(x['flow-ID-001_feed'] - x['flow-ID-001_product'] - x['flow-ID-001_waste']) > 5
+    }
+    
+    status = {}
+    for indicator, check in thresholds.items():
+        status[indicator] = 'danger' if check(site_data.iloc[-1]) else 'success'
+    
+    return status
 
 # Main app layout
 app.layout = html.Div([
@@ -115,48 +162,11 @@ map_layout = html.Div([
     )
 ])
 
-def create_kpi_card(title, value, unit=""):
-    return dbc.Card(
-        dbc.CardBody([
-            html.H6(title, className="card-subtitle mb-2 text-muted"),
-            html.H4(f"{value}{unit}", className="card-title")
-        ]),
-        className="mb-3"
-    )
-
+# Updated Overview layout
 overview_layout = html.Div([
     html.H2("Overview", className="mb-4"),
-    dbc.Row([
-        dbc.Col([
-            create_kpi_card("Average Recovery Rate", f"{df['recovery_rate'].mean():.1f}", "%"),
-        ], width=3),
-        dbc.Col([
-            create_kpi_card("Average Pressure", f"{df['pressure'].mean():.1f}", " psi"),
-        ], width=3),
-        dbc.Col([
-            create_kpi_card("Average Flow Rate", f"{df['flow-ID-001_feed'].mean():.1f}", " gpm"),
-        ], width=3),
-        dbc.Col([
-            create_kpi_card("Total Sites", len(df['site_name'].unique())),
-        ], width=3),
-    ])
+    html.Div(id='overview-content')
 ])
-
-def create_performance_charts(site_data):
-    metrics = {
-        'recovery_rate': 'Recovery Rate (%)',
-        'pressure': 'Pressure (psi)',
-        'flow-ID-001_feed': 'Feed Flow Rate (gpm)',
-        'temperature': 'Temperature (°C)'
-    }
-    
-    charts = []
-    for metric, label in metrics.items():
-        fig = px.line(site_data, x='timestamp', y=metric, title=label)
-        fig.update_layout(height=300)
-        charts.append(dcc.Graph(figure=fig, className="mb-4"))
-    
-    return charts
 
 performance_layout = html.Div([
     html.H2("Site Performance", className="mb-4"),
@@ -173,7 +183,61 @@ performance_layout = html.Div([
     html.Div(id='performance-charts')
 ])
 
-# Callbacks
+@app.callback(
+    Output('overview-content', 'children'),
+    [Input('site-filter', 'value')]
+)
+def update_overview(selected_sites):
+    if not selected_sites:
+        return html.Div("Please select at least one site from the sidebar.", className="alert alert-info")
+    
+    if not isinstance(selected_sites, list):
+        selected_sites = [selected_sites]
+    
+    content = []
+    for site in selected_sites:
+        site_data = df[df['site_name'] == site]
+        if site_data.empty:
+            continue
+            
+        # Create gauge charts row
+        gauge_row = dbc.Row([
+            dbc.Col(dcc.Graph(figure=create_gauge(
+                site_data['recovery_rate'].iloc[-1],
+                "Recovery rate",
+                site
+            )), width=6),
+            dbc.Col(dcc.Graph(figure=create_gauge(
+                site_data['pressure'].iloc[-1] / 10,  # Normalize pressure to 0-100 scale
+                "Differential Pressure",
+                site
+            )), width=6),
+        ], className="mb-4")
+        
+        # Create status indicators
+        status = create_status_indicators(site_data)
+        status_row = dbc.Row([
+            html.H4(f"Site {site} Status", className="mb-3"),
+            dbc.Col([
+                html.Div([
+                    html.I(className=f"fas fa-circle text-{status['membrane_fouling']}", style={'marginRight': '10px'}),
+                    "Membrane Fouling"
+                ], className="mb-2"),
+                html.Div([
+                    html.I(className=f"fas fa-circle text-{status['pump_faults']}", style={'marginRight': '10px'}),
+                    "Pump or Motor Faults"
+                ], className="mb-2"),
+                html.Div([
+                    html.I(className=f"fas fa-circle text-{status['flow_imbalances']}", style={'marginRight': '10px'}),
+                    "Flow Imbalances"
+                ], className="mb-2"),
+            ])
+        ], className="mb-4")
+        
+        content.extend([gauge_row, status_row, html.Hr()])
+    
+    return html.Div(content)
+
 @app.callback(
     Output('page-content', 'children'),
     [Input('url', 'pathname')]
@@ -184,17 +248,6 @@ def display_page(pathname):
     elif pathname == '/performance':
         return performance_layout
     return map_layout
-
-@app.callback(
-    Output('performance-charts', 'children'),
-    [Input('performance-site-select', 'value')]
-)
-def update_performance_charts(selected_site):
-    if not selected_site:
-        return []
-    
-    site_data = df[df['site_name'] == selected_site]
-    return create_performance_charts(site_data)
 
 @app.callback(
     [Output('page-1', 'style'),
