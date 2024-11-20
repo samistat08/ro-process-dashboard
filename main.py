@@ -3,14 +3,15 @@ from utils.data_processor import load_data
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Configure the page
+# Configure the page with minimal padding
 st.set_page_config(
     page_title="Smart RO - V0",
     page_icon="💧",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Add custom CSS to match the requested styling
+# Add custom CSS for clean layout
 st.markdown("""
     <style>
     .stApp {
@@ -48,6 +49,16 @@ st.markdown("""
         border-radius: 4px;
         margin: 0.5rem 0;
     }
+    /* Remove padding from containers */
+    .element-container {
+        padding: 0 !important;
+    }
+    .stPlotlyChart {
+        padding: 0 !important;
+    }
+    /* Hide streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -57,29 +68,18 @@ df = load_data(use_real_time=True)
 # Sidebar content
 with st.sidebar:
     st.image('assets/veolia-logo.svg', use_column_width=True)
-    st.markdown("<h6 style='color: #666; margin-bottom: 1rem;'>Pages:</h6>", unsafe_allow_html=True)
-    
-    # Create navigation menu
-    selected_page = st.radio(
-        "",
-        ["Site Map", "Overview", "Site Performance"],
-        label_visibility="collapsed",
-        key="navigation"
-    )
-    
-    st.markdown("<hr>", unsafe_allow_html=True)
     
     # Filters section
-    st.markdown("<h6 style='color: #666; margin-bottom: 1rem;'>Filters</h6>", unsafe_allow_html=True)
+    st.markdown("<h6 style='color: #666; margin: 1rem 0;'>Filters</h6>", unsafe_allow_html=True)
     
     # Date filter
     dates = df['timestamp'].dt.date.unique()
-    start_date = st.date_input('Start Date', min(dates))
-    end_date = st.date_input('End Date', max(dates))
+    start_date = st.date_input('Start Date', min(dates), key='start_date')
+    end_date = st.date_input('End Date', max(dates), key='end_date')
     
     # Site filter
     sites = sorted(df['site_name'].unique())
-    selected_sites = st.multiselect('Select Sites', sites, default=sites)
+    selected_sites = st.multiselect('Select Sites', sites, default=sites, key='sites')
 
 # Filter data based on selection
 mask = (df['timestamp'].dt.date >= start_date) & (df['timestamp'].dt.date <= end_date)
@@ -87,7 +87,7 @@ filtered_df = df[mask]
 if selected_sites:
     filtered_df = filtered_df[filtered_df['site_name'].isin(selected_sites)]
 
-# Create the map
+# Create the map with clean styling
 fig = go.Figure(data=go.Scattergeo(
     lon=filtered_df['Longitude'],
     lat=filtered_df['Latitude'],
@@ -103,8 +103,7 @@ fig = go.Figure(data=go.Scattergeo(
 ))
 
 fig.update_layout(
-    title="Smart RO - V0",
-    title_x=0.5,
+    title=None,  # Remove title for cleaner look
     geo=dict(
         projection_type='natural earth',
         showland=True,
@@ -117,9 +116,11 @@ fig.update_layout(
         projection_scale=1.8
     ),
     height=800,
-    margin=dict(l=0, r=0, t=30, b=0),
+    margin=dict(l=0, r=0, t=0, b=0),  # Remove all margins
     showlegend=False,
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
 )
 
-# Display the map
-st.plotly_chart(fig, use_container_width=True)
+# Display the map with full width
+st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
