@@ -20,6 +20,16 @@ st.markdown("""
     .main {
         padding: 0rem;
     }
+    .main .block-container {
+        padding-top: 0;
+        padding-bottom: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    /* Hide Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     /* Sidebar styling */
     section[data-testid="stSidebar"] {
         background-color: #f0f0f0;
@@ -56,9 +66,6 @@ st.markdown("""
     .stPlotlyChart {
         padding: 0 !important;
     }
-    /* Hide streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
