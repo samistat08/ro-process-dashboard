@@ -10,7 +10,10 @@ import pandas as pd
 # Initialize Dash app with proper theme and configuration
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        'https://use.fontawesome.com/releases/v5.15.4/css/all.css'
+    ],
     suppress_callback_exceptions=True,
     routes_pathname_prefix='/'
 )
@@ -79,9 +82,24 @@ sidebar = html.Div([
     # Pages section
     html.H6("Pages:", style={'margin-bottom': '1rem', 'color': '#666', 'font-size': '0.9rem'}),
     dbc.Nav([
-        dbc.NavLink("Site Map", href="/", active=True, className="nav-link"),
-        dbc.NavLink("Overview", href="/overview", className="nav-link"),
-        dbc.NavLink("Site Performance", href="/performance", className="nav-link"),
+        dbc.NavItem([
+            dbc.NavLink([
+                html.I(className="fas fa-circle me-2"),
+                "Site Map"
+            ], href="/", id="site-map-link", active=True)
+        ]),
+        dbc.NavItem([
+            dbc.NavLink([
+                html.I(className="fas fa-circle me-2"),
+                "Overview"
+            ], href="/overview", id="overview-link")
+        ]),
+        dbc.NavItem([
+            dbc.NavLink([
+                html.I(className="fas fa-circle me-2"),
+                "Site Performance"
+            ], href="/performance", id="performance-link")
+        ])
     ],
     vertical=True,
     pills=True,
@@ -174,6 +192,52 @@ performance_layout = html.Div([
     html.Div(id='performance-charts')
 ])
 
+# Add custom CSS for navigation
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>Smart RO - V0</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            .nav-link {
+                color: #333;
+                padding: 0.5rem 1rem;
+                margin: 0.2rem 0;
+                border-radius: 0.25rem;
+                display: flex;
+                align-items: center;
+            }
+            .nav-link i {
+                font-size: 0.8rem;
+                margin-right: 0.5rem;
+            }
+            .nav-link.active {
+                background-color: #ff4444 !important;
+                color: white !important;
+            }
+            .nav-link:hover:not(.active) {
+                background-color: #f8f9fa;
+                color: #ff4444;
+            }
+            .nav-link.active i {
+                color: white;
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 # Callbacks
 @app.callback(
     [Output('page-content', 'children'),
@@ -209,32 +273,6 @@ def handle_map_click(clickData):
     if clickData:
         return '/performance'
     return dash.no_update
-
-# Add custom CSS
-app.index_string = '''
-<!DOCTYPE html>
-<html>
-    <head>
-        {%metas%}
-        <title>Smart RO - V0</title>
-        {%favicon%}
-        {%css%}
-        <style>
-            .nav-link { color: #333; }
-            .nav-link.active { background-color: #ff4444 !important; }
-            .nav-link:hover { color: #ff4444; }
-        </style>
-    </head>
-    <body>
-        {%app_entry%}
-        <footer>
-            {%config%}
-            {%scripts%}
-            {%renderer%}
-        </footer>
-    </body>
-</html>
-'''
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=False)
