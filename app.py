@@ -62,49 +62,43 @@ SIDEBAR_STYLE = {
     "bottom": 0,
     "width": "250px",
     "padding": "2rem 1rem",
-    "background-color": "#f8f9fa",
+    "background-color": "#f0f0f0",
+    "box-shadow": "2px 0px 5px rgba(0,0,0,0.1)"
 }
 
 CONTENT_STYLE = {
     "margin-left": "250px",
-    "padding": "0rem",
+    "padding": "0",
 }
 
 # Create sidebar
-sidebar = html.Div(
-    [
-        html.Img(src='/assets/veolia-logo.svg', style={'width': '100%', 'margin-bottom': '2rem'}),
-        html.H6("Pages:", className="text-muted"),
-        dbc.Nav(
-            [
-                dbc.NavLink("Site Map", href="/", id="site-map-link", className="nav-link"),
-                dbc.NavLink("Overview", href="/overview", id="overview-link", className="nav-link"),
-                dbc.NavLink("Site Performance", href="/performance", id="performance-link", className="nav-link"),
-            ],
-            vertical=True,
-            pills=True,
-        ),
-        html.Hr(),
-        html.Div([
-            html.Label("Date Filter", className="text-muted mb-2"),
-            dcc.DatePickerRange(
-                id='date-filter',
-                start_date=df['timestamp'].min(),
-                end_date=df['timestamp'].max(),
-                className="mb-3"
-            ),
-            html.Label("Site Filter", className="text-muted mb-2"),
-            dcc.Dropdown(
-                id='site-filter',
-                options=[{'label': site, 'value': site} for site in sorted(df['site_name'].unique())],
-                multi=True,
-                placeholder="Select sites...",
-                className="mb-3"
-            ),
-        ])
+sidebar = html.Div([
+    # Logo
+    html.Img(src='/assets/veolia-logo.svg', style={'width': '100%', 'margin-bottom': '2rem'}),
+    
+    # Pages section
+    html.H6("Pages:", style={'margin-bottom': '1rem', 'color': '#666', 'font-size': '0.9rem'}),
+    dbc.Nav([
+        dbc.NavLink("Site Map", href="/", active=True, className="nav-link"),
+        dbc.NavLink("Overview", href="/overview", className="nav-link"),
+        dbc.NavLink("Site Performance", href="/performance", className="nav-link"),
     ],
-    style=SIDEBAR_STYLE,
-)
+    vertical=True,
+    pills=True,
+    className="mb-4"
+    ),
+    
+    html.Hr(),
+    
+    # Filters
+    html.Div([
+        html.Label("Date Filter", style={'color': '#666', 'font-size': '0.9rem'}),
+        dcc.DatePickerRange(id='date-filter', className="mb-3"),
+        html.Label("Site Filter", style={'color': '#666', 'font-size': '0.9rem'}),
+        dcc.Dropdown(id='site-filter', className="mb-3")
+    ])
+],
+style=SIDEBAR_STYLE)
 
 # Main app layout
 app.layout = html.Div([
@@ -118,7 +112,7 @@ map_layout = html.Div([
     dcc.Graph(
         id='world-map',
         figure=fig,
-        style={'height': '100vh'}
+        style={'height': 'calc(100vh - 20px)'}
     )
 ])
 
@@ -243,5 +237,4 @@ app.index_string = '''
 '''
 
 if __name__ == '__main__':
-    # Use port 5000 for Replit compatibility
     app.run_server(host='0.0.0.0', port=5000, debug=False)
